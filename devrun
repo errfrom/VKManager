@@ -2,4 +2,5 @@
 
 lein clean
 lein uberjar
+clear
 ./run "$@"

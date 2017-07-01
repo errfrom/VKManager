@@ -19,8 +19,8 @@
   (.close conn))
 
 (defn handle-sql-exception! [exc-msg conn statmt]
-  (let [misuse "[SQLITE_MISUSE]"]
-    (cond (str/starts-with? exc-msg misuse) nil ; cond для расширяемости
+  (let [mis-use "[SQLITE_MISUSE]"]
+    (cond (str/starts-with? exc-msg mis-use) nil ; cond для расширяемости
            :else (do (close-db! conn statmt)
                      (println "Ошибка SQLite. Завершение работы...")
                      (System/exit 1)))))
