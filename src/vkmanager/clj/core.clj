@@ -1,7 +1,9 @@
 (ns vkmanager.clj.core
-  (:gen-class))
+  (:gen-class)
+  (:require [vkmanager.clj.db  :as db]
+            [clojure.tools.cli :refer [parse-opts]]))
 
 (defn -main
-  "I don't do a whole lot ... yet."
   [& args]
-  (println "Hello, World!"))
+  (let [[conn statmt] (db/init-db! "test.db")]
+    (db/close-db! conn statmt)))
