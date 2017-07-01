@@ -10,6 +10,7 @@ CREATE TABLE USERS
      UID        INTEGER NOT NULL,
      FNAME      TEXT    NOT NULL,
      SNAME      TEXT    NOT NULL,
+     GENGER     TEXT            ,
      DOB        TEXT            , -- Date of Birth (принятое сокращение)
      COUNTRY    TEXT            ,
      CITY       TEXT            ,
