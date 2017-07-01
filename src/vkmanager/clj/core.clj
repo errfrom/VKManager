@@ -1,4 +1,4 @@
-(ns vkmanager.sql.core
+(ns vkmanager.clj.core
   (:gen-class))
 
 (defn -main

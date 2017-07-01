@@ -1,4 +1,4 @@
-(ns vkmanager.utils
+(ns vkmanager.clj.utils
   (:require [clojure.string :as str]))
 
 (defn normalize-text [text & {:keys [delimiter] :or {delimiter ""}}]
