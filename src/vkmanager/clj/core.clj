@@ -50,13 +50,9 @@
   (from-hash-map (map add-delimiter
                       (to-hash-map options)))))
 
-(def options
+(def options ; TODO Добавить опцию для relations, idишки в форме интервала
   (align-descs
-  [[:short-opt "-h" :long-opt "--help" :required "" :default ""
-   :default-desc ""
-   :desc "Выводит небольшую справку или описание определенных действий, опций."]
-
-  [:short-opt "-p" :long-opt "--path-to-db" :required "" :default false
+  [[:short-opt "-p" :long-opt "--path-to-db" :required "" :default "default.db"
    :default-desc "(текущая директория)"
    :desc "Путь к базе данных, существующей или нет."]
 
@@ -74,7 +70,12 @@
    :default-desc "(без интервала)"
    :desc (utils/normalize-text
          "[только для 'collect'] Интервал обновления базы данных.
-          (Формат значения - hh:mm)" :delimiter " ")]]))
+          (Формат значения - hh:mm)" :delimiter " ")]
+
+  [:short-opt "-h" :long-opt "--help" :required "" :default false
+   :default-desc ""
+   :desc "Выводит небольшую справку или описание определенных действий, опций."]
+  ]))
 
 (defn interval? [interval]
   (let [interval-regexp #"^[0-9][0-9]:[0-5][0-9]"]
@@ -83,22 +84,59 @@
     :else true)))
 
 (def msg-validate-interval
+  "Совет, выводящийся при несоответствии значения интервала,
+   вводимого пользователем необходимой определенной форме."
   (utils/join-by-newline
     ["Значения опции 'interval' должно быть представлено"
      "в форме: часы:минуты, где"
-     "(00 <= часы <= 99) и (00 <= минуты <= 59)"]))
+     "(00 <= часы <= 99) и (00 <= минуты <= 59)."]))
 
-(defn handle-help! [options summary]
-  (cond (options :help) (do (println (usage summary)) ; TODO: расширить cond
-                            (System/exit 0))
-        :else true))
+(defn handle-help [args options]
+  "Отдельная обработка опции 'help', связанная
+   с различным поведением в зависимости от переданного ей
+   значения."
+  (let [args (set args)
+        contains-help? (or (contains? args "-h")
+                           (contains? args "--help"))]
+    (cond (not contains-help?) false
+          (false? (options :help))  true
+          :else                     true)))
 
-(defn handle! [args] ; TODO: интерактивные подсказки
-  (let [{:keys [options arguments errors summary]} (parse-opts args options)]
-    (handle-help! options summary)))
+(defn handle! [args]
+  (let [{:keys [options arguments errors summary]} (parse-opts args options)
+        advice-format "\n\nСоветы:"
+        advices!      (transient [])
+        to-advices!   (partial conj! advices!)]
 
-(defn -main
-  [& args]
-  (handle! args)
-  #_(let [[conn statmt] (db/init-db! "test.db")]
-    (db/close-db! conn statmt)))
+    (when (true? (handle-help args options))
+      (do (println (usage summary))
+          (System/exit 0)))
+
+    (when-let [interval (options :interval)]
+      (when (not (interval? interval))
+        (to-advices! msg-validate-interval)))
+
+    (let [advices          (persistent! advices!)
+          pretty-advices   (->> advices (map #(str "\n* " %))
+                                        (apply str advice-format)
+                                        (str (usage summary)))]
+      (if ((comp not nil? seq) advices)
+        (do (println pretty-advices)
+            (System/exit 0))
+        [args options]))))
+
+(defn collect [options])   ; TODO
+(defn relations [options]) ; TODO
+
+(defn -main [& args]
+  "Делегирует работу указанным пользователем действиям,
+   распараллеливания процессы."
+  (let [[arguments' options] (handle! args)
+        arguments            (set arguments')
+        map-arg-action       {"collect"   collect
+                              "relations" relations}
+        specified-actions    (filter (partial contains?
+                                              ((comp set keys) map-arg-action))
+                                     arguments)]
+    (pmap #((map-arg-action %) options)
+          specified-actions)))
