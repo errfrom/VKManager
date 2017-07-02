@@ -27,32 +27,54 @@
      summary
      ])))
 
-(def options ; TODO: вынести в отдельную функции выставление ограничителей |
-  [
-  [:short-opt "-h" :long-opt "--help" :required "" :default ""
+(defn align-descs [options]
+  "parse-opts подразумевает выравнивание,
+   однако для сохранения единого стиля,
+   описание от остальных параметров должно
+   быть отделено прямой чертой '|'.
+
+   Добавляет перед описанием каждой опции, ограничитель."
+  (let [delimiter "| "
+        ; parse-opts принимает вектор опций, где каждая
+        ; опция предаставлена вектором, поэтому приходится
+        ; приводить сначала все опции в ассоц. массив, а потом
+        ; обратно в вектор
+        to-hash-map   (partial map (partial apply hash-map))
+        from-hash-map (partial map (comp utils/flatten1 vec))
+        add-delimiter (fn [option]
+                        (if (contains? option :desc)
+                          (update option
+                                  :desc
+                                  #(str delimiter %))
+                          option))]
+  (from-hash-map (map add-delimiter
+                      (to-hash-map options)))))
+
+(def options
+  (align-descs
+  [[:short-opt "-h" :long-opt "--help" :required "" :default ""
    :default-desc ""
-   :desc "| Выводит небольшую справку или описание определенных действий, опций."]
+   :desc "Выводит небольшую справку или описание определенных действий, опций."]
 
   [:short-opt "-p" :long-opt "--path-to-db" :required "" :default false
    :default-desc "(текущая директория)"
-   :desc "| Путь к базе данных, существующей или нет."]
+   :desc "Путь к базе данных, существующей или нет."]
 
   [:short-opt "-t" :long-opt "--access-token" :required "" :default false
    :default-desc "(без access-token'а)"
-   :desc "| [Рекомендуется!] Ключ доступа для получения расширенных результатов."]
+   :desc "[Рекомендуется!] Ключ доступа для получения расширенных результатов."]
 
   [:short-opt "-s" :long-opt "--start" :required "" :default false
    :default-desc "(автоматически)"
    :desc (utils/normalize-text
-         "| [только для 'collect'] Идентификатор пользователя,
+         "[только для 'collect'] Идентификатор пользователя,
           c которого следует начинать выгрузку." :delimiter " ")]
 
   [:short-opt "-i" :long-opt "--interval" :required "" :default false
    :default-desc "(без интервала)"
    :desc (utils/normalize-text
-         "| [только для 'collect'] Интервал обновления базы данных.
-          (Формат значения - hh:mm)" :delimiter " ")]
-  ])
+         "[только для 'collect'] Интервал обновления базы данных.
+          (Формат значения - hh:mm)" :delimiter " ")]]))
 
 (defn interval? [interval]
   (let [interval-regexp #"^[0-9][0-9]:[0-5][0-9]"]
