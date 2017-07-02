@@ -9,11 +9,12 @@
   (.exists (io/file path-to-file)))
 
 (defn refactor-db-path [path-to-db]
-  (let [db-format ".db"]
-    (if (str/ends-with? path-to-db db-format)
-      path-to-db
-      (str path-to-db db-format))))
-
+  (let [name-default "default"
+        db-format    ".db"]
+    (cond (.isDirectory (io/file path-to-db)) (str path-to-db name-default db-format)
+          (not (str/ends-with? path-to-db db-format)) (str path-to-db db-format)
+          :else path-to-db)))
+          
 (defn close-db! [conn statmt]
   (.close statmt)
   (.close conn))
