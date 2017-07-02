@@ -6,7 +6,8 @@
   :dependencies [[org.clojure/clojure    "1.8.0"]
                  [proto-repl             "0.3.1"]      ; repl
                  [org.clojure/tools.cli  "0.3.5"]      ; console args parser
-                 [org.xerial/sqlite-jdbc "3.7.15-M1"]] ; jdbc driver
+                 [org.xerial/sqlite-jdbc "3.7.15-M1"]  ; jdbc driver
+                 [http-kit               "2.1.18"]]    ; http handler
   :main vkmanager.clj.core
   :aot [vkmanager.clj.core]
   :target-path "target/%s")
