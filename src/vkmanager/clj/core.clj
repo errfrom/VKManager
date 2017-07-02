@@ -29,21 +29,25 @@
 
 (def options ; TODO: вынести в отдельную функции выставление ограничителей |
   [
-  [:short-opt "-h" :long-opt "--help" :default false
+  [:short-opt "-h" :long-opt "--help" :required "" :default ""
    :default-desc ""
    :desc "| Выводит небольшую справку или описание определенных действий, опций."]
 
-  [:short-opt "-p" :long-opt "--path-to-db" :default false
+  [:short-opt "-p" :long-opt "--path-to-db" :required "" :default false
    :default-desc "(текущая директория)"
    :desc "| Путь к базе данных, существующей или нет."]
 
-  [:short-opt "-s" :long-opt "--start" :default false
+  [:short-opt "-t" :long-opt "--access-token" :required "" :default false
+   :default-desc "(без access-token'а)"
+   :desc "| [Рекомендуется!] Ключ доступа для получения расширенных результатов."]
+
+  [:short-opt "-s" :long-opt "--start" :required "" :default false
    :default-desc "(автоматически)"
    :desc (utils/normalize-text
          "| [только для 'collect'] Идентификатор пользователя,
           c которого следует начинать выгрузку." :delimiter " ")]
 
-  [:short-opt "-i" :long-opt "--interval" :default false
+  [:short-opt "-i" :long-opt "--interval" :required "" :default false
    :default-desc "(без интервала)"
    :desc (utils/normalize-text
          "| [только для 'collect'] Интервал обновления базы данных.
