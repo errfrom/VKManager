@@ -1,6 +1,7 @@
 (ns vkmanager.clj.db
-  (:require [clojure.string  :as str]
-            [clojure.java.io :as io])
+  (:require [vkmanager.clj.utils :as utils]
+            [clojure.string      :as str]
+            [clojure.java.io     :as io])
   (:import  java.lang.System
             java.sql.DriverManager
             java.sql.SQLException))
@@ -55,3 +56,17 @@
         max-uid (.getInt (.executeQuery statmt query) "MAX(UID)")
         start-value (inc max-uid)] ; NULL
     start-value))
+
+(defn insert-db! [statmt table keys' values]
+  "Вставляет запись в базу данных. "
+  (let [sql-keys      (utils/separate-by-commas keys')
+        sql-values    (utils/separate-by-commas values)
+        query-pattern "INSERT INTO %s (%s) VALUES (%s);"
+        query         (format query-pattern table sql-keys sql-values)]
+    (.execute statmt query)))
+
+(defn select-by-primary-key! [statmt table primary-key-name primary-key-val]
+  (let [query-pattern  "SELECT * FROM %s WHERE %s = %s;"
+        query          (format query-pattern table primary-key-name primary-key-val)
+        result         (resultset-seq (.executeQuery statmt query))]
+    result))
