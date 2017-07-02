@@ -42,3 +42,13 @@
         ; что сворачивается в [a1 a2 a3 a4 a5]
         (into head (flatten1 tail))
         (cons head (flatten1 tail))))))
+
+(defn separate-by-commas [x]
+  "Соединяет последовательность в строку по разделителю запятой."
+  (if (sequential? x)
+    (str/join "," x)
+    x))
+
+(defn rstrip [x]
+  "Удаляет первый элемент строки."
+  (str/join "" (rest x)))
