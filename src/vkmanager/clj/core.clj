@@ -1,9 +1,10 @@
 (ns vkmanager.clj.core
   (:gen-class)
-  (:require [vkmanager.clj.db    :as db]
-            [vkmanager.clj.utils :as utils]
-            [clojure.string      :as str]
-            [clojure.tools.cli   :refer [parse-opts]])
+  (:require [vkmanager.clj.db     :as db]
+            [vkmanager.clj.utils  :as utils]
+            [vkmanager.clj.parser :as parser]
+            [clojure.string       :as str]
+            [clojure.tools.cli    :refer [parse-opts]])
   (:import java.lang.System))
 
 (defn usage [summary]
@@ -91,6 +92,15 @@
      "в форме: часы:минуты, где"
      "(00 <= часы <= 99) и (00 <= минуты <= 59)."]))
 
+(defn validate-start [start-value]
+  (let [positive-integer? (partial re-matches #"^[1-9][0-9]*$")]
+    (cond (false? start-value)                            true
+          ((comp not nil? positive-integer?) start-value) true
+          :else                                           false)))
+
+(def msg-validate-start
+  "Значение опции 'start' должно быть представлены целым положительным числом.")
+
 (defn handle-help [args options]
   "Отдельная обработка опции 'help', связанная
    с различным поведением в зависимости от переданного ей
@@ -116,6 +126,9 @@
       (when (not (interval? interval))
         (to-advices! msg-validate-interval)))
 
+    (when-let [start-value (not (validate-start (options :start)))]
+      (to-advices! msg-validate-start))
+
     (let [advices          (persistent! advices!)
           pretty-advices   (->> advices (map #(str "\n* " %))
                                         (apply str advice-format)
@@ -125,7 +138,15 @@
             (System/exit 0))
         [args options]))))
 
-(defn collect [options])   ; TODO
+(defn collect! [options]
+  (let [[conn statmt] (db/init-db! (options :path-to-db))
+        access-token  (options :access-token)
+        start-value   (if-let [start-value (options :start)]
+                        start-value
+                        (db/get-start-value! statmt))]
+    (parser/parse! statmt access-token start-value)
+    (db/close-db! conn statmt)))
+
 (defn relations [options]) ; TODO
 
 (defn -main [& args]
@@ -133,10 +154,13 @@
    распараллеливания процессы."
   (let [[arguments' options] (handle! args)
         arguments            (set arguments')
-        map-arg-action       {"collect"   collect
+        map-arg-action       {"collect"   collect!
                               "relations" relations}
+        execute-action       #((map-arg-action %) options)
         specified-actions    (filter (partial contains?
                                               ((comp set keys) map-arg-action))
                                      arguments)]
-    (pmap #((map-arg-action %) options)
-          specified-actions)))
+    (cond ((comp nil? seq) specified-actions) (collect! options)
+          (= 1 (count specified-actions))     (execute-action (first specified-actions))
+          :else                               (pmap (partial execute-action)
+                                                    specified-actions))))
