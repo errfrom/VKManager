@@ -14,7 +14,7 @@
     (cond (.isDirectory (io/file path-to-db)) (str path-to-db name-default db-format)
           (not (str/ends-with? path-to-db db-format)) (str path-to-db db-format)
           :else path-to-db)))
-          
+
 (defn close-db! [conn statmt]
   (.close statmt)
   (.close conn))
@@ -47,3 +47,11 @@
                       (handle-sql-exception! (.getMessage exception) conn statmt)))
           (println "Инициализировано.")))
     [conn statmt]))
+
+(defn get-start-value! [statmt]
+  "Получает максимальное значение UID уже записанных в базу пользователей.
+   Возвращает значение, с которого следует продолжать поиск."
+  (let [query   "SELECT MAX(UID) FROM USERS"
+        max-uid (.getInt (.executeQuery statmt query) "MAX(UID)")
+        start-value (inc max-uid)] ; NULL
+    start-value))
