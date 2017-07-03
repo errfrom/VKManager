@@ -40,15 +40,15 @@
         ; опция предаставлена вектором, поэтому приходится
         ; приводить сначала все опции в ассоц. массив, а потом
         ; обратно в вектор
-        to-hash-map   (partial map (partial apply hash-map))
-        from-hash-map (partial map (comp utils/flatten1 vec))
-        add-delimiter (fn [option]
-                        (if (contains? option :desc)
-                          (update option
-                                  :desc
-                                  #(str delimiter %))
-                          option))]
-  (from-hash-map (map add-delimiter
+        to-hash-map    (partial map (partial apply hash-map))
+        from-hash-map  (partial map (comp utils/flatten1 vec))
+        add-delimiter  #(str delimiter %)
+        add-delimiters (fn [option]
+                         (->> option (#(utils/update-if-contains % :desc
+                                                                   add-delimiter))
+                                     (#(utils/update-if-contains % :default-desc
+                                                                   add-delimiter))))]
+  (from-hash-map (map add-delimiters
                       (to-hash-map options)))))
 
 (def options ; TODO Добавить опцию для relations, idишки в форме интервала
@@ -73,6 +73,10 @@
          "[только для 'collect'] Интервал обновления базы данных.
           (Формат значения - hh:mm)" :delimiter " ")]
 
+  [:short-opt "-m" :long-opt "--max-records" :required "" :default 100000
+   :default-desc "(100 тысяч)"
+   :desc "Максимальное число записей за один вызов."]
+
   [:short-opt "-h" :long-opt "--help" :required "" :default false
    :default-desc ""
    :desc "Выводит небольшую справку или описание определенных действий, опций."]
@@ -87,19 +91,21 @@
 (def msg-validate-interval
   "Совет, выводящийся при несоответствии значения интервала,
    вводимого пользователем необходимой определенной форме."
-  (utils/join-by-newline
-    ["Значения опции 'interval' должно быть представлено"
-     "в форме: часы:минуты, где"
-     "(00 <= часы <= 99) и (00 <= минуты <= 59)."]))
+  (utils/normalize-text
+    "Значения опции 'interval' должно быть представлено
+     в форме: часы:минуты, где
+     (00 <= часы <= 99) и (00 <= минуты <= 59)." :delimiter " "))
 
 (defn validate-start [start-value]
-  (let [positive-integer? (partial re-matches #"^[1-9][0-9]*$")]
-    (cond (false? start-value)                            true
-          ((comp not nil? positive-integer?) start-value) true
-          :else                                           false)))
+  (cond (false? start-value)                                  true
+        ((comp not nil? utils/positive-integer?) start-value) true
+        :else                                                 false))
 
 (def msg-validate-start
-  "Значение опции 'start' должно быть представлены целым положительным числом.")
+  "Значение опции 'start' должно быть представлено целым положительным числом.")
+
+(def msg-validate-max-records
+  "Значение опции 'max-records' должно быть представлено целым положительным числом.")
 
 (defn handle-help [args options]
   "Отдельная обработка опции 'help', связанная
@@ -129,6 +135,9 @@
     (when-let [start-value (not (validate-start (options :start)))]
       (to-advices! msg-validate-start))
 
+    (when (not (utils/positive-integer? (options :max-records)))
+      (to-advices! msg-validate-max-records))
+
     (let [advices          (persistent! advices!)
           pretty-advices   (->> advices (map #(str "\n* " %))
                                         (apply str advice-format)
@@ -141,10 +150,11 @@
 (defn collect! [options]
   (let [[conn statmt] (db/init-db! (options :path-to-db))
         access-token  (options :access-token)
+        max-records   (options :max-records)
         start-value   (if-let [start-value (options :start)]
                         start-value
                         (db/get-start-value! statmt))]
-    (parser/parse! statmt access-token start-value)
+    (parser/parse! statmt access-token start-value max-records)
     (db/close-db! conn statmt)))
 
 (defn relations [options]) ; TODO
