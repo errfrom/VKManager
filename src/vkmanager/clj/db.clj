@@ -70,3 +70,8 @@
         query          (format query-pattern table primary-key-name primary-key-val)
         result         (resultset-seq (.executeQuery statmt query))]
     result))
+
+(defn delete-by-primary-key! [statmt table primary-key-name primary-key-val]
+  (let [query-pattern "DELETE FROM %s WHERE %s=%s;"
+        query         (format query-pattern table primary-key-name primary-key-val)]
+    (.execute statmt query)))
