@@ -28,7 +28,7 @@
 
 (defn adapt-keys [keys']
   (->> keys' (map str)               ; превращение всех ключей в строки
-             (map utils/rstrip)      ; удаление префикса :
+             (map utils/lstrip)      ; удаление префикса :
              (map str/upper-case)))  ; перевод в верхний регистр
 
 (defn adapt [x]
