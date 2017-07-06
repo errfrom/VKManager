@@ -6,10 +6,13 @@
             [vkmanager.clj.db    :as db]
             [vkmanager.clj.utils :as utils]
             [clojure.string      :as str]
-            [org.httpkit.client  :as http]
+            [clj-http.client     :as http]
             [clojure.data.json   :as json])
   (:import  [vkmanager.clj.data User]
             java.lang.Math))
+; TODO: создать папку 'parser' и создать модули, реализующие
+;       определенный функциональный блок
+; TODO: нужно много тестов
 
 (defn handle-types [user]
   (let [all-vals-to-str #(apply merge (for [[k v] %]
@@ -70,19 +73,9 @@
                      (handle-user)
                      (map->User)))))
 
-(def user-agent (utils/normalize-text
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko)
-     Chrome/58.0.3029.110 Safari/537.36 OPR/45.0.2552.888" :delimiter " "))
-
-(def options   {:user-agent user-agent
-                :headers {
-  "accept" (utils/normalize-text "text/html,application/xhtml+xml,application/xml;
-                                  q=0.9,image/webp,*/*;q=0.8")
-  "accept-Encoding"     "gzip, deflate, sdch, br"
-  "accept-language"     "en-US,en;q=0.8"
-  "cache-control"       "max-age=0"}})
-
-(defn receive-get-url
+; Функции формирования API.VK ссылок TODO: query params
+;-------------------------------------------------------------------------------
+(defn receive-users-url
   "Формирование ссылки получения
    информации первых (end - start) пользователей."
   [access_token start end]
@@ -95,16 +88,41 @@
         ids          (utils/separate-by-commas (range start end))]
     (format url-pattern ids access_token)))
 
-(defn one-iter! [access-token start-uid quantity]
-  (let [url       (receive-get-url access-token start-uid (+ start-uid quantity))
-        response  (:body @(http/get url options))
-        json      (try
-                    (json/read-str response)
-                    (catch java.lang.Exception e
-                      (do (spit "error.txt" e :append true)
-                          (one-iter! access-token start-uid (utils/remove-tenth quantity)))))
-        json-resp (json "response")]
-    (map build-user json-resp)))
+(defn receive-countries-url
+  "Формирование ссылки получения
+  названий стран по их идентификаторам."
+  [access-token country-ids]
+  (let [url-pattern (utils/normalize-text
+                    "https://api.vk.com/method/database.getCountriesById?
+                     country_ids=%s
+                     &access_token=%s")
+        country-ids  (utils/separate-by-commas (set country-ids))]
+    (format url-pattern country-ids access-token)))
+
+(defn receive-cities-url
+  "Формирование ссылки получения
+  названий городов по их идентификаторам."
+  [access-token city-ids]
+  (let [url-pattern (utils/normalize-text
+                    "https://api.vk.com/method/database.getCitiesById?
+                    city_ids=%s
+                    &access_token=%s")
+        city-ids    (utils/separate-by-commas (set city-ids))]
+    (format url-pattern city-ids access-token)))
+;-------------------------------------------------------------------------------
+
+(defn get-json [url]
+  (let [http-response (:body (http/get url {:cookie-policy :standard}))
+        json          (json/read-str http-response)
+        json-response (json "response")]
+    json-response))
+
+(defn parse-users! [access-token start-uid quantity]
+  (let [start         start-uid
+        end           (+ start-uid quantity)
+        url           (receive-users-url access-token start end)
+        json-response (get-json url)]
+    (map build-user json-response)))
 
 (defn update-counters!
   "Инкрементирует определенный счетчик,
@@ -124,6 +142,50 @@
     ; TODO: создать нормальную систему логгирования
     (do (spit "log.txt" e :append true)))))
 
+; NOTE: should be refactored later
+; TODO: реализовать механизм обработки идентификторов местоположения
+;       при грубом прекращении работы
+;-------------------------------------------------------------------------------
+(defn get-name-by-cid [cid json]
+  (if (= cid 0)
+      "NULL"
+      (format "'%s'"
+       ((first (filter #(= cid (% "cid")) json)) "name"))))
+
+(defn get-user-location-ids! [uid statmt location-pattern]
+  (->> location-pattern (#(str % uid))
+                          (.executeQuery statmt)
+                          (resultset-seq)
+                          (first)))
+
+(defn update-location-worker!
+  [statmt user-uids
+   update-pattern location-pattern json-countries json-cities]
+  (for [uid user-uids]
+    (let [{:keys [city country]} (get-user-location-ids! uid statmt location-pattern)
+          country-name (get-name-by-cid (read-string country) json-countries)
+          city-name    (get-name-by-cid (read-string city) json-cities)
+          update-query (format update-pattern country-name city-name uid)]
+      (.execute statmt update-query))))
+
+(defn update-location-data!
+  "Замещает идентификаторы стран и городов
+  соответствующими названия."
+  [statmt access-token user-uids]
+  (let [country-ids    (db/get-countries! statmt user-uids)
+        countries-url  (receive-countries-url access-token country-ids)
+        json-countries (get-json countries-url)
+
+        city-ids       (db/get-cities! statmt user-uids)
+        cities-url     (receive-cities-url access-token city-ids)
+        json-cities    (get-json cities-url)
+
+        update-pattern    "UPDATE USERS SET COUNTRY = %s, CITY = %s WHERE UID = %s"
+        location-pattern  "SELECT COUNTRY, CITY FROM USERS WHERE UID = "]
+  (update-location-worker! statmt user-uids update-pattern location-pattern
+                           json-countries json-cities)))
+;-------------------------------------------------------------------------------
+
 (defn handle-db-update!
   "Делигирует задачи
   функциям 'failover-write-db!' и 'update-counters!',
@@ -133,12 +195,11 @@
    out out-pattern counter-valid counter-invalid]
   (let [update-counters! #(update-counters!
                           % out out-pattern counter-valid counter-invalid)]
-    (dorun
-     (for [user users]
-       (if (false? user)
-           (update-counters! false)
-           (do (failover-write-db! user statmt)
-               (update-counters! true)))))))
+    (for [user users]
+      (if (false? user)
+          (update-counters! false)
+          (do (failover-write-db! user statmt)
+              (update-counters! true))))))
 
 (defn worker!
   "Рекурсивно обрабатывает информацию,
@@ -149,8 +210,12 @@
   (if (>= start-uid limit)
       (println "\nГотово")
       (let [updated-start-uid (+ start-uid query-quantity)
-            users             (one-iter! access-token start-uid query-quantity)]
-        (handle-db-update! statmt users out out-pattern counter-valid counter-invalid)
+            users             (parse-users! access-token start-uid query-quantity)
+            valid-users       (filter #(not (false? %)) users)
+            user-uids         (map #(.uid %) valid-users)]
+
+        (dorun (handle-db-update! statmt users out out-pattern counter-valid counter-invalid))
+        (dorun (update-location-data! statmt access-token user-uids))
         (worker! statmt access-token updated-start-uid query-quantity limit
                  out out-pattern counter-valid counter-invalid))))
 
@@ -162,8 +227,6 @@
                              "Несуществующих аккаунтов: %s.")
         counter-valid   (atom 0)
         counter-invalid (atom 0)]
-    ; NOTE: можно уменьшить число параметров функции 'worker!',
-    ;       организовав их как коллекции, однако мы жертвуем
-    ;       простотой восприятия.
+
     (worker! statmt access-token start-uid query-quantity limit ; parse params
              out out-pattern counter-valid counter-invalid)))   ; out params

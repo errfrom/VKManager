@@ -80,3 +80,15 @@
   (let [query-pattern "DELETE FROM %s WHERE %s=%s;"
         query         (format query-pattern table primary-key-name primary-key-val)]
     (.execute statmt query)))
+
+(defn get-countries! [statmt user-uids]
+  (let [query-pattern "SELECT COUNTRY FROM USERS WHERE UID IN (%s)"
+        query         (format query-pattern (utils/separate-by-commas user-uids))
+        result        (resultset-seq (.executeQuery statmt query))]
+    (map :country result)))
+
+(defn get-cities! [statmt user-uids]
+  (let [query-pattern "SELECT CITY FROM USERS WHERE UID IN (%s)"
+        query         (format query-pattern (utils/separate-by-commas user-uids))
+        result        (resultset-seq (.executeQuery statmt query))]
+    (map :city result)))
