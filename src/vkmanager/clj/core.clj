@@ -28,13 +28,14 @@
      summary
      ])))
 
-(defn align-descs [options]
+(defn align-descs
   "parse-opts подразумевает выравнивание,
-   однако для сохранения единого стиля,
-   описание от остальных параметров должно
-   быть отделено прямой чертой '|'.
+  однако для сохранения единого стиля,
+  описание от остальных параметров должно
+  быть отделено прямой чертой '|'.
 
-   Добавляет перед описанием каждой опции, ограничитель."
+  Добавляет перед описанием каждой опции, ограничитель."
+  [options]
   (let [delimiter "| "
         ; parse-opts принимает вектор опций, где каждая
         ; опция предаставлена вектором, поэтому приходится
@@ -44,18 +45,19 @@
         from-hash-map  (partial map (comp utils/flatten1 vec))
         add-delimiter  #(str delimiter %)
         add-delimiters (fn [option]
-                         (->> option (#(utils/update-if-contains % :desc
-                                                                   add-delimiter))
-                                     (#(utils/update-if-contains % :default-desc
-                                                                   add-delimiter))))]
-  (from-hash-map (map add-delimiters
-                      (to-hash-map options)))))
+                         (->> option
+                          (#(utils/update-if-contains % :desc add-delimiter))
+                          (#(utils/update-if-contains % :default-desc add-delimiter))))]
+
+  (from-hash-map
+   (map add-delimiters
+        (to-hash-map options)))))
 
 (def options ; TODO Добавить опцию для relations, idишки в форме интервала
   (align-descs
   [[:short-opt "-p" :long-opt "--path-to-db" :required "" :default "default.db"
-   :default-desc "(текущая директория)"
-   :desc "Путь к базе данных, существующей или нет."]
+    :default-desc "(текущая директория)"
+    :desc "Путь к базе данных, существующей или нет."]
 
   [:short-opt "-t" :long-opt "--access-token" :required "" :default false
    :default-desc "(без access-token'а)"
@@ -65,15 +67,15 @@
    :default-desc "(автоматически)"
    :desc (utils/normalize-text
          "[только для 'collect'] Идентификатор пользователя,
-          c которого следует начинать выгрузку." :delimiter " ")]
+         c которого следует начинать выгрузку." :delimiter " ")]
 
   [:short-opt "-i" :long-opt "--interval" :required "" :default false
    :default-desc "(без интервала)"
    :desc (utils/normalize-text
          "[только для 'collect'] Интервал обновления базы данных.
-          (Формат значения - hh:mm)" :delimiter " ")]
+         (Формат значения - hh:mm)" :delimiter " ")]
 
-  [:short-opt "-m" :long-opt "--max-records" :required "" :default 100000
+  [:short-opt "-m" :long-opt "--max-records" :required "" :default "100000"
    :default-desc "(100 тысяч)"
    :desc "Максимальное число записей за один вызов."]
 
@@ -84,17 +86,18 @@
 
 (defn interval? [interval]
   (let [interval-regexp #"^[0-9][0-9]:[0-5][0-9]"]
+
     (cond (not (instance? String interval))            false
           (nil? (re-matches interval-regexp interval)) false
-    :else true)))
+          :else                                        true)))
 
 (def msg-validate-interval
   "Совет, выводящийся при несоответствии значения интервала,
-   вводимого пользователем необходимой определенной форме."
+  вводимого пользователем необходимой определенной форме."
   (utils/normalize-text
     "Значения опции 'interval' должно быть представлено
-     в форме: часы:минуты, где
-     (00 <= часы <= 99) и (00 <= минуты <= 59)." :delimiter " "))
+    в форме: часы:минуты, где
+    (00 <= часы <= 99) и (00 <= минуты <= 59)." :delimiter " "))
 
 (defn validate-start [start-value]
   (cond (false? start-value)                                  true
@@ -107,14 +110,16 @@
 (def msg-validate-max-records
   "Значение опции 'max-records' должно быть представлено целым положительным числом.")
 
-(defn handle-help [args options]
+(defn handle-help
   "Отдельная обработка опции 'help', связанная
-   с различным поведением в зависимости от переданного ей
-   значения."
+  с различным поведением в зависимости от переданного ей
+  значения."
+  [args options]
   (let [args (set args)
         contains-help? (or (contains? args "-h")
                            (contains? args "--help"))]
-    (cond (not contains-help?) false
+
+    (cond (not contains-help?)      false
           (false? (options :help))  true
           :else                     true)))
 
@@ -125,43 +130,61 @@
         to-advices!   (partial conj! advices!)]
 
     (when (true? (handle-help args options))
-      (do (println (usage summary))
-          (System/exit 0)))
+          (do (println (usage summary))
+              (System/exit 0)))
 
     (when-let [interval (options :interval)]
       (when (not (interval? interval))
-        (to-advices! msg-validate-interval)))
+            (to-advices! msg-validate-interval)))
 
     (when-let [start-value (not (validate-start (options :start)))]
       (to-advices! msg-validate-start))
 
     (when (not (utils/positive-integer? (options :max-records)))
-      (to-advices! msg-validate-max-records))
+          (to-advices! msg-validate-max-records))
 
-    (let [advices          (persistent! advices!)
-          pretty-advices   (->> advices (map #(str "\n* " %))
-                                        (apply str advice-format)
-                                        (str (usage summary)))]
+    (let [advices        (persistent! advices!)
+          pretty-advices (->> advices (map #(str "\n* " %))
+                                      (apply str advice-format)
+                                      (str (usage summary)))]
       (if ((comp not nil? seq) advices)
-        (do (println pretty-advices)
-            (System/exit 0))
+          (do (println pretty-advices)
+              (System/exit 0))
         [args options]))))
+
+(defn set-break-handler!
+  "Регистрирует сигнал 'грубого' завершения процесса.
+  Мягко завершает все важные процессы."
+  ; NOTE: проверить на Windows.
+  [conn statmt]
+  (let [script-terminated-code 130]
+    (sun.misc.Signal/handle
+      (sun.misc.Signal. "INT")
+      (proxy [sun.misc.SignalHandler] []
+        (handle [signal]
+          (db/close-db! conn statmt)
+          (System/exit script-terminated-code))))))
 
 (defn collect! [options]
   (let [[conn statmt] (db/init-db! (options :path-to-db))
-        access-token  (options :access-token)
-        max-records   (options :max-records)
+        access-token  (if-let [access-token (options :access-token)]
+                       access-token
+                       "")
+        max-records   (read-string (options :max-records))
         start-value   (if-let [start-value (options :start)]
-                        start-value
-                        (db/get-start-value! statmt))]
+                       (read-string start-value)
+                       (db/get-start-value! statmt))]
+
+    (set-break-handler! conn statmt)
     (parser/parse! statmt access-token start-value max-records)
     (db/close-db! conn statmt)))
 
 (defn relations [options]) ; TODO
 
-(defn -main [& args]
+(defn -main
   "Делегирует работу указанным пользователем действиям,
-   распараллеливания процессы."
+  распараллеливания процессы."
+  [& args]
   (let [[arguments' options] (handle! args)
         arguments            (set arguments')
         map-arg-action       {"collect"   collect!
@@ -170,6 +193,7 @@
         specified-actions    (filter (partial contains?
                                               ((comp set keys) map-arg-action))
                                      arguments)]
+
     (cond ((comp nil? seq) specified-actions) (collect! options)
           (= 1 (count specified-actions))     (execute-action (first specified-actions))
           :else                               (pmap (partial execute-action)
