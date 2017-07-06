@@ -106,55 +106,64 @@
         json-resp (json "response")]
     (map build-user json-resp)))
 
-(def counter-good (atom 0)) ; NOTE: можно реализовать функцию 'state', как в Perl
-                            ;       и значительно сократить кол-во кода как в
-                            ;       реализации счетчика, так и получения значения
-                            ;       'limit' в функции 'parse!'
-(def counter-bad (atom 0))
-(def out (System/out))
-(def out-pattern
-  "\rОбработано и записано в базу данных: %s. Несуществующих аккаунтов: %s.")
-
-(defn update-counter [exist?]
-  (let [iter-num-good @counter-good
-        iter-num-bad  @counter-bad]
-    (if exist? (reset! counter-good (inc iter-num-good))
-               (reset! counter-bad  (inc iter-num-bad)))
-    (.print out (format out-pattern iter-num-good iter-num-bad))))
+(defn update-counters!
+  "Инкрементирует определенный счетчик,
+  в зависимости от значения бинарного параметра 'valid'
+  и выводит формитированный output."
+  [valid? out out-pattern counter-valid counter-invalid]
+  (if valid? (reset! counter-valid   (inc @counter-valid))
+             (reset! counter-invalid (inc @counter-invalid)))
+  (.print out (format out-pattern @counter-valid @counter-invalid)))
 
 (defn failover-write-db!
   "Обертка вокруг метода 'write-db!' протокола 'DbInteractional',
-   реализующая отказоустойчивость записи в базу данных."
-  [statmt user]
-  (try (write-db! statmt user)
+  реализующая отказоустойчивость записи в базу данных."
+  [user statmt]
+  (try (write-db! user statmt)
   (catch Exception e
+    ; TODO: создать нормальную систему логгирования
     (do (spit "log.txt" e :append true)))))
 
-(def limit (promise))
+(defn handle-db-update!
+  "Делигирует задачи
+  функциям 'failover-write-db!' и 'update-counters!',
+  опираясь на результат функции 'one-iter', возвращающей
+  список 'User' записей."
+  [statmt users
+   out out-pattern counter-valid counter-invalid]
+  (let [update-counters! #(update-counters!
+                          % out out-pattern counter-valid counter-invalid)]
+    (dorun
+     (for [user users]
+       (if (false? user)
+           (update-counters! false)
+           (do (failover-write-db! user statmt)
+               (update-counters! true)))))))
 
-(defn get-limit [start-uid max-records]
-  (when (not (realized? limit))
-        (deliver limit (+ max-records
-                          start-uid)))
-  @limit)
+(defn worker!
+  "Рекурсивно обрабатывает информацию,
+  вследствие чего не происходит нехватки места в куче."
+  [statmt access-token start-uid query-quantity limit
+   out out-pattern counter-valid counter-invalid]
+
+  (if (>= start-uid limit)
+      (println "\nГотово")
+      (let [updated-start-uid (+ start-uid query-quantity)
+            users             (one-iter! access-token start-uid query-quantity)]
+        (handle-db-update! statmt users out out-pattern counter-valid counter-invalid)
+        (worker! statmt access-token updated-start-uid query-quantity limit
+                 out out-pattern counter-valid counter-invalid))))
 
 (defn parse! [statmt access-token start-uid max-records]
-  ; TODO: перехват закрытия терминала
-  ; Рекурсивная реализация подходит лучше всего, т.к.
-  ; нам нет надобности хранить прежние вычисления, что
-  ; происходит в случае реализации через map.
-  (if (>= start-uid (get-limit start-uid max-records))
-      (println "\nГотово.")
-      (let [query-quantity (if (> max-records 500) 500
-                                                   max-records)
-            users          (one-iter! access-token start-uid query-quantity)]
-
-        (dorun
-         (for [user users]
-           (if (false? user) (update-counter false)
-                             (do (failover-write-db! user statmt)
-                                 (update-counter true)))))
-        (parse! statmt
-                access-token
-                (+ start-uid query-quantity)
-                max-records))))
+  (let [query-quantity  (if (> max-records 500) 500 max-records)
+        limit           (+ max-records start-uid)
+        out             (System/out)
+        out-pattern     (str "\rОбработано и записано в базу данных: %s. "
+                             "Несуществующих аккаунтов: %s.")
+        counter-valid   (atom 0)
+        counter-invalid (atom 0)]
+    ; NOTE: можно уменьшить число параметров функции 'worker!',
+    ;       организовав их как коллекции, однако мы жертвуем
+    ;       простотой восприятия.
+    (worker! statmt access-token start-uid query-quantity limit ; parse params
+             out out-pattern counter-valid counter-invalid)))   ; out params
