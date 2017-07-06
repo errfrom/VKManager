@@ -5,26 +5,25 @@
 
 (defprotocol DbInteractional
   "Протокол, определяющий свойство объекта
-   взаимодействовать с базой данных."
-  (write-db!  [self statmt]
+  взаимодействовать с базой данных."
+  (write-db! [self statmt]
     "Обновление базы."))
 
 (defmulti read-db!
   "Чтение записи, принадлежащей отношению
-   с первичным ключем primary-key."
+  с первичным ключем primary-key."
   (fn [rec statmt primary-key] rec))
 
 (defmulti remove-from-db!
   "Удаление записи, принадлежащей отношению
-   с первичным ключем primary-key."
+  с первичным ключем primary-key."
    (fn [rec statmt primary-key] rec))
-
 
 (defn adapt-values [values]
   (->> values (map #(if (nil? %) "NULL" %))  ; обработка nil значений
               (map #(if (instance? String %) ; обработка строк
-                      (format "'%s'" %)
-                      %))))
+                     (format "'%s'" %)
+                     %))))
 
 (defn adapt-keys [keys']
   (->> keys' (map str)               ; превращение всех ключей в строки

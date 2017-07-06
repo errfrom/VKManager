@@ -10,26 +10,28 @@
 (def join-by-newline
   (partial str/join "\n"))
 
-(defn align-by [delimiter & strings] ; TODO: не проходит тесты!
+(defn align-by ; FIXME: не проходит все тесты
   "Выравнивает строки по ограничителю."
-    (let [space   " "
-          pattern (re-pattern (format "[%s]" delimiter))
-          get-index #(str/last-index-of % delimiter)
-          max-index  (apply max
-                       (map (partial get-index)
-                             strings))
+  [delimiter & strings]
+  (let [space   " "
+        pattern (re-pattern (format "[%s]" delimiter))
+        get-index #(str/last-index-of % delimiter)
+        max-index  (apply max
+                     (map (partial get-index)
+                           strings))
 
-          add-spaces #(str/join
-                        (str (str/join (repeat (- max-index (get-index %))
-                                               space))
-                              delimiter)
-                        (str/split % pattern))]
+        add-spaces #(str/join
+                      (str (str/join (repeat (- max-index (get-index %))
+                                             space))
+                            delimiter)
+                      (str/split % pattern))]
     (vec (map (partial add-spaces) strings))))
 
-(defn flatten1 [x]
+(defn flatten1
   "Удаляет один уровень вложенности.
    > (flatten1 [a1 a2 [a3 a4]])
    [a1 a2 a3 a4]"
+  [x]
   (if (nil? (seq x)) []
     (let [head (first x)
           tail (rest  x)]
@@ -44,37 +46,49 @@
         (into head (flatten1 tail))
         (cons head (flatten1 tail))))))
 
-(defn separate-by-commas [x]
+(defn separate-by-commas
   "Соединяет последовательность в строку по разделителю запятой."
+  [x]
   (if (sequential? x)
     (str/join "," x)
     x))
 
-(defn lstrip [x]
+(defn lstrip
   "Удаляет первый элемент строки."
+  [x]
   (str/join "" (rest x)))
 
-(defn add-missing-keys [x pattern]
+(defn add-missing-keys
   "Сравнивает hashmap с шаблоном (последовательность ключей).
    И, если в hashmap'е отсутствуют некоторые ключи из шаблона,
    добавляет их со значением nil.
    > (add-missing-keys {:a 1 :b 2} #(:a :b :c :d)
    {:a 1 :b 2 :c nil :d nil}."
+  [x pattern]
   (let [excepted     (if (instance? java.util.Set pattern) pattern (set pattern))
         existing     (set (keys x))
         missing      (difference excepted existing)
         missing-nils (apply merge (map #(hash-map % nil) missing))]
     (merge x missing-nils)))
 
-(defn positive-integer? [x]
-  "Определяет, является ли число целым и положительным."
-  (re-matches #"^[1-9][0-9]*$" x))
+(defn positive-integer?
+  "Определяет, является ли число, представленное строкой
+   целым и положительным."
+  [x]
+  (if (nil? (re-matches #"^[1-9][0-9]*$" x)) false
+                                             true))
 
-(defn update-if-contains [x key' fun]
+(defn update-if-contains
   "Обертка вокруг встроенной функции update.
    Отличие заключается в обработке исключительной ситуации
    при передаче несуществующего в ассоциативном массиве ключа:
    обычная функция добавляет ключ, эта же возвращает первоначальный
    hashmap"
+  [x key' fun]
   (if (contains? x key') (update x key' fun)
                          x))
+
+(defn remove-tenth
+  "Вернуть 9/10 числа."
+  [num]
+  (Math/floor (* num 9/10)))

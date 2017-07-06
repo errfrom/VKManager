@@ -12,9 +12,11 @@
 (defn refactor-db-path [path-to-db]
   (let [name-default "default"
         db-format    ".db"]
-    (cond (.isDirectory (io/file path-to-db)) (str path-to-db name-default db-format)
-          (not (str/ends-with? path-to-db db-format)) (str path-to-db db-format)
-          :else path-to-db)))
+
+    (cond
+     (.isDirectory (io/file path-to-db)) (str path-to-db name-default db-format)
+     (not (str/ends-with? path-to-db db-format)) (str path-to-db db-format)
+     :else  path-to-db)))
 
 (defn close-db! [conn statmt]
   (.close statmt)
@@ -39,6 +41,7 @@
           statmt        (.createStatement conn)
           sql-init-path "src/vkmanager/sql/init.sql"
           sql-commands  (str/split (slurp sql-init-path) #";")]
+
     (when (not exists?)
       (do (println (str "Инициализация новой базы данных - " path-to-db "..."))
           ; создание сразу всех отношений
@@ -49,16 +52,18 @@
           (println "Инициализировано.")))
     [conn statmt]))
 
-(defn get-start-value! [statmt]
+(defn get-start-value!
   "Получает максимальное значение UID уже записанных в базу пользователей.
    Возвращает значение, с которого следует продолжать поиск."
+  [statmt]
   (let [query   "SELECT MAX(UID) FROM USERS"
         max-uid (.getInt (.executeQuery statmt query) "MAX(UID)")
         start-value (inc max-uid)] ; NULL
     start-value))
 
-(defn insert-db! [statmt table keys' values]
+(defn insert-db!
   "Вставляет запись в базу данных. "
+  [statmt table keys' values]
   (let [sql-keys      (utils/separate-by-commas keys')
         sql-values    (utils/separate-by-commas values)
         query-pattern "INSERT INTO %s (%s) VALUES (%s);"
