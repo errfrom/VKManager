@@ -8,7 +8,8 @@
             [clojure.string      :as str]
             [org.httpkit.client  :as http]
             [clojure.data.json   :as json])
-  (:import  [vkmanager.clj.data User]))
+  (:import  [vkmanager.clj.data User]
+            java.lang.Math))
 
 (defn handle-types [user]
   (let [all-vals-to-str #(apply merge (for [[k v] %]
@@ -32,9 +33,10 @@
   (->> user (handle-values)
             (handle-types)))
 
-(defn build-user [json-elem]
+(defn build-user
   "Принимает json строку пользователя и возвращает
    запись типа User."
+  [json-elem]
   (if (contains? json-elem "deactivated") false ; Если страница удалена
     (let [matching-tree   {"uid"          :uid
                            "first_name"   :fname
@@ -80,9 +82,10 @@
   "accept-language"     "en-US,en;q=0.8"
   "cache-control"       "max-age=0"}})
 
-(defn receive-get-url [access_token start end]
+(defn receive-get-url
   "Формирование ссылки получения
    информации первых (end - start) пользователей."
+  [access_token start end]
   (let [url-pattern (utils/normalize-text
                     "https://api.vk.com/method/users.get?
                      user_ids=%s
@@ -93,11 +96,65 @@
     (format url-pattern ids access_token)))
 
 (defn one-iter! [access-token start-uid quantity]
-  (let [url      (receive-get-url access-token start-uid (+ start-uid quantity))
-        response ((json/read-str (:body @(http/get url options))) "response")]
-    (filter #(not (false? %)) (map build-user response))))
+  (let [url       (receive-get-url access-token start-uid (+ start-uid quantity))
+        response  (:body @(http/get url options))
+        json      (try
+                    (json/read-str response)
+                    (catch java.lang.Exception e
+                      (do (spit "error.txt" e :append true)
+                          (one-iter! access-token start-uid (utils/remove-tenth quantity)))))
+        json-resp (json "response")]
+    (map build-user json-resp)))
+
+(def counter-good (atom 0)) ; NOTE: можно реализовать функцию 'state', как в Perl
+                            ;       и значительно сократить кол-во кода как в
+                            ;       реализации счетчика, так и получения значения
+                            ;       'limit' в функции 'parse!'
+(def counter-bad (atom 0))
+(def out (System/out))
+(def out-pattern
+  "\rОбработано и записано в базу данных: %s. Несуществующих аккаунтов: %s.")
+
+(defn update-counter [exist?]
+  (let [iter-num-good @counter-good
+        iter-num-bad  @counter-bad]
+    (if exist? (reset! counter-good (inc iter-num-good))
+               (reset! counter-bad  (inc iter-num-bad)))
+    (.print out (format out-pattern iter-num-good iter-num-bad))))
+
+(defn failover-write-db!
+  "Обертка вокруг метода 'write-db!' протокола 'DbInteractional',
+   реализующая отказоустойчивость записи в базу данных."
+  [statmt user]
+  (try (write-db! statmt user)
+  (catch Exception e
+    (do (spit "log.txt" e :append true)))))
+
+(def limit (promise))
+
+(defn get-limit [start-uid max-records]
+  (when (not (realized? limit))
+        (deliver limit (+ max-records
+                          start-uid)))
+  @limit)
 
 (defn parse! [statmt access-token start-uid max-records]
-  (let [num-max-query 800] ; Максимальное число пользователей в одном запросе
-    (map #(one-iter! % access-token num-max-query)
-         (range start-uid (+ start-uid max-records) num-max-query))))
+  ; TODO: перехват закрытия терминала
+  ; Рекурсивная реализация подходит лучше всего, т.к.
+  ; нам нет надобности хранить прежние вычисления, что
+  ; происходит в случае реализации через map.
+  (if (>= start-uid (get-limit start-uid max-records))
+      (println "\nГотово.")
+      (let [query-quantity (if (> max-records 500) 500
+                                                   max-records)
+            users          (one-iter! access-token start-uid query-quantity)]
+
+        (dorun
+         (for [user users]
+           (if (false? user) (update-counter false)
+                             (do (failover-write-db! user statmt)
+                                 (update-counter true)))))
+        (parse! statmt
+                access-token
+                (+ start-uid query-quantity)
+                max-records))))
