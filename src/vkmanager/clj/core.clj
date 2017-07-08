@@ -1,10 +1,10 @@
 (ns vkmanager.clj.core
   (:gen-class)
-  (:require [vkmanager.clj.db     :as db]
-            [vkmanager.clj.utils  :as utils]
-            [vkmanager.clj.parser :as parser]
-            [clojure.string       :as str]
-            [clojure.tools.cli    :refer [parse-opts]])
+  (:require [vkmanager.clj.db          :as db]
+            [vkmanager.clj.utils       :as utils]
+            [vkmanager.clj.parser.main :as parser]
+            [clojure.string            :as str]
+            [clojure.tools.cli         :refer [parse-opts]])
   (:import java.lang.System))
 
 (defn usage [summary]
