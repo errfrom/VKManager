@@ -6,10 +6,10 @@
             java.sql.DriverManager
             java.sql.SQLException))
 
-(defn file-exists? [path-to-file]
+(defn- file-exists? [path-to-file]
   (.exists (io/file path-to-file)))
 
-(defn refactor-db-path [path-to-db]
+(defn- refactor-db-path [path-to-db]
   (let [name-default "default"
         db-format    ".db"]
 
@@ -22,7 +22,7 @@
   (.close statmt)
   (.close conn))
 
-(defn handle-sql-exception! [exc-msg conn statmt]
+(defn- handle-sql-exception! [exc-msg conn statmt]
   (let [mis-use "[SQLITE_MISUSE]"]
     (cond (str/starts-with? exc-msg mis-use) nil ; cond для расширяемости
            :else (do (close-db! conn statmt)
@@ -80,15 +80,3 @@
   (let [query-pattern "DELETE FROM %s WHERE %s=%s;"
         query         (format query-pattern table primary-key-name primary-key-val)]
     (.execute statmt query)))
-
-(defn get-countries! [statmt user-uids]
-  (let [query-pattern "SELECT COUNTRY FROM USERS WHERE UID IN (%s)"
-        query         (format query-pattern (utils/separate-by-commas user-uids))
-        result        (resultset-seq (.executeQuery statmt query))]
-    (map :country result)))
-
-(defn get-cities! [statmt user-uids]
-  (let [query-pattern "SELECT CITY FROM USERS WHERE UID IN (%s)"
-        query         (format query-pattern (utils/separate-by-commas user-uids))
-        result        (resultset-seq (.executeQuery statmt query))]
-    (map :city result)))

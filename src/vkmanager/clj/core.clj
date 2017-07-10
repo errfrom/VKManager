@@ -1,4 +1,7 @@
 (ns vkmanager.clj.core
+  "Точка входа программы.
+   Представляет консольный пользовательский
+   интерфейс."
   (:gen-class)
   (:require [vkmanager.clj.db          :as db]
             [vkmanager.clj.utils       :as utils]
@@ -7,7 +10,7 @@
             [clojure.tools.cli         :refer [parse-opts]])
   (:import java.lang.System))
 
-(defn usage [summary]
+(defn- usage [summary]
   (utils/join-by-newline (utils/flatten1
     ["vk-manager"
      "Добро пожаловать!"
@@ -19,16 +22,19 @@
      ""
      (utils/align-by "|"
      "collect | Выгрузка информации, формирование базы данных."
-     "relations | Формирует sql-таблицу отношений между определенными пользователями.")
+     "relations | [В разработке!] Формирует sql-таблицу отношений между определенными пользователями.")
      ""
      "Опции:"
      "Для разных действий можно указать определенные опции!"
      "(название опции, полное название опции, значение по умолчанию, описание)"
      ""
      summary
+     ""
+     "Пожалуйста, для безопасного срочного завершения выполнения, используете сочетание 'Ctrl+C'."
+     "Своевременно запрашиваете новый access-token для предсказуемой работы программы."
      ])))
 
-(defn align-descs
+(defn- align-descs
   "parse-opts подразумевает выравнивание,
   однако для сохранения единого стиля,
   описание от остальных параметров должно
@@ -53,7 +59,7 @@
    (map add-delimiters
         (to-hash-map options)))))
 
-(def options ; TODO Добавить опцию для relations, idишки в форме интервала
+(def ^:private options
   (align-descs
   [[:short-opt "-p" :long-opt "--path-to-db" :required "" :default "default.db"
     :default-desc "(текущая директория)"
@@ -72,7 +78,7 @@
   [:short-opt "-i" :long-opt "--interval" :required "" :default false
    :default-desc "(без интервала)"
    :desc (utils/normalize-text
-         "[только для 'collect'] Интервал обновления базы данных.
+         "[В разработке!][только для 'collect'] Интервал обновления базы данных.
          (Формат значения - hh:mm)" :delimiter " ")]
 
   [:short-opt "-m" :long-opt "--max-records" :required "" :default "100000"
@@ -84,14 +90,14 @@
    :desc "Выводит небольшую справку или описание определенных действий, опций."]
   ]))
 
-(defn interval? [interval]
+(defn- interval? [interval]
   (let [interval-regexp #"^[0-9][0-9]:[0-5][0-9]"]
 
     (cond (not (instance? String interval))            false
           (nil? (re-matches interval-regexp interval)) false
           :else                                        true)))
 
-(def msg-validate-interval
+(def ^:private msg-validate-interval
   "Совет, выводящийся при несоответствии значения интервала,
   вводимого пользователем необходимой определенной форме."
   (utils/normalize-text
@@ -99,18 +105,18 @@
     в форме: часы:минуты, где
     (00 <= часы <= 99) и (00 <= минуты <= 59)." :delimiter " "))
 
-(defn validate-start [start-value]
+(defn- validate-start [start-value]
   (cond (false? start-value)                                  true
         ((comp not nil? utils/positive-integer?) start-value) true
         :else                                                 false))
 
-(def msg-validate-start
+(def ^:private msg-validate-start
   "Значение опции 'start' должно быть представлено целым положительным числом.")
 
-(def msg-validate-max-records
+(def ^:private msg-validate-max-records
   "Значение опции 'max-records' должно быть представлено целым положительным числом.")
 
-(defn handle-help
+(defn- handle-help
   "Отдельная обработка опции 'help', связанная
   с различным поведением в зависимости от переданного ей
   значения."
@@ -123,7 +129,9 @@
           (false? (options :help))  true
           :else                     true)))
 
-(defn handle! [args]
+(defn- handle! [args]
+  "Проверяет значение каждого входного параметра на совпадение
+   с определенной требуемой моделью."
   (let [{:keys [options arguments errors summary]} (parse-opts args options)
         advice-format "\n\nСоветы:"
         advices!      (transient [])
@@ -152,9 +160,9 @@
               (System/exit 0))
         [args options]))))
 
-(defn set-break-handler!
+(defn- set-break-handler!
   "Регистрирует сигнал 'грубого' завершения процесса.
-  Мягко завершает все важные процессы."
+  Безопасно завершает все важные процессы."
   ; NOTE: проверить на Windows.
   [conn statmt]
   (let [script-terminated-code 130]
@@ -165,7 +173,7 @@
           (db/close-db! conn statmt)
           (System/exit script-terminated-code))))))
 
-(defn collect! [options]
+(defn- collect! [options]
   (let [[conn statmt] (db/init-db! (options :path-to-db))
         access-token  (if-let [access-token (options :access-token)]
                        access-token
@@ -179,7 +187,11 @@
     (parser/parse! statmt access-token start-value max-records)
     (db/close-db! conn statmt)))
 
-(defn relations [options]) ; TODO
+(defn- relations [options]
+  (println "В разработке!"))
+
+(defn- advice-help! []
+  (println "Неверный запрос. Для получения справки по использованию, введите './run -h'."))
 
 (defn -main
   "Делегирует работу указанным пользователем действиям,
@@ -194,7 +206,7 @@
                                               ((comp set keys) map-arg-action))
                                      arguments)]
 
-    (cond ((comp nil? seq) specified-actions) (collect! options)
+    (cond ((comp nil? seq) specified-actions) (advice-help!)
           (= 1 (count specified-actions))     (execute-action (first specified-actions))
           :else                               (pmap (partial execute-action)
                                                     specified-actions))))

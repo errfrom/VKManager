@@ -1,9 +1,10 @@
 (ns vkmanager.clj.parser.receiver
   "Модуль, задачей которого является
    получение информации. Интерфейс
-   представляется набором функций,
-   принимающих определенные параметры
-   запросы и возвращающих json представление."
+   представлен функцией receive, которая
+   на основе функции формирования URL,
+   возвращает JSON представление того или иного
+   объекта."
    (:require [vkmanager.clj.utils :as utils]
              [clj-http.client     :as http]
              [clojure.data.json   :as json])
@@ -12,7 +13,7 @@
 (def ^:private fields
   (utils/separate-by-commas ["deactivated" "uid" "first_name" "last_name"
                              "sex" "bdate" "country" "city" "contacts"
-                             "education" "schools"]))
+                             "education" "schools" "connections"]))
 
 (def ^:private headers
   {"accept"          (utils/normalize-text
@@ -31,28 +32,6 @@
                          Проверьте подключение к интернету.
                          Повтор через 15 секунд." :delimiter " "))
 
-(defn- receive-users-url
-  [access-token user-ids]
-  (let [url  "https://api.vk.com/method/users.get"
-        params {"user_ids"     (utils/separate-by-commas user-ids)
-                "access_token" access-token
-                "fields"       fields}]
-    [url params]))
-
-(defn- receive-countries-url
-  [access-token country-ids]
-  (let [url "https://api.vk.com/method/database.getCountriesById"
-        params {"country_ids"   (utils/separate-by-commas (set country-ids))
-                "access_token" access-token}]
-    [url params]))
-
-(defn- receive-cities-url
-  [access-token city-ids]
-  (let [url "https://api.vk.com/method/database.getCitiesById"
-        params {"city_ids" (utils/separate-by-commas (set city-ids))
-                "access_token" access-token}]
-    [url params]))
-
 (defn- get-response! [url params]
   (try (http/get url {:query-params  params
                       :headers       headers
@@ -68,7 +47,9 @@
        status    (:status response)]
    (if (== status status-ok)
        (:body response)
-       false)))
+       false))) ; TODO: сделать возможным обмен сообщениями с
+                ; потоком-наблюдателем, чтобы на основе определенных ошибок
+                ; правильно контролировать поведение всей программы
 
 (defn- get-json [http-response-body]
   (if (not http-response-body)
@@ -78,20 +59,30 @@
         json-response)))
 
 ;-------------------------------------------------------------------------------
-(defn receive-user-jsons [access-token user-ids]
-  (let [[url params] (receive-users-url access-token user-ids)
-        resp-body    (get-response-body! url params)
-        json         (get-json resp-body)]
-    json))
+(defn users-url
+  [access-token user-ids]
+  (let [url  "https://api.vk.com/method/users.get"
+        params {"user_ids"     (utils/separate-by-commas user-ids)
+                "access_token" access-token
+                "fields"       fields}]
+    [url params]))
 
-(defn receive-cities-json [access-token city-ids]
-  (let [[url params] (receive-cities-url access-token city-ids)
-        resp-body    (get-response-body! url params)
-        json         (get-json resp-body)]
-    json))
+(defn countries-url
+  [access-token country-ids]
+  (let [url "https://api.vk.com/method/database.getCountriesById"
+        params {"country_ids"   (utils/separate-by-commas (set country-ids))
+                "access_token" access-token}]
+    [url params]))
 
-(defn receive-countries-json [access-token country-ids]
-  (let [[url params] (receive-countries-url access-token country-ids)
+(defn cities-url
+  [access-token city-ids]
+  (let [url "https://api.vk.com/method/database.getCitiesById"
+        params {"city_ids" (utils/separate-by-commas (set city-ids))
+                "access_token" access-token}]
+    [url params]))
+
+(defn receive [funUrl access-token user-ids]
+  (let [[url params] (funUrl access-token user-ids)
         resp-body    (get-response-body! url params)
         json         (get-json resp-body)]
     json))

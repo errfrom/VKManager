@@ -92,9 +92,6 @@ CREATE TABLE UNIVERSITIES
 (
     UN_ID   INTEGER NOT NULL,
     TITLE   TEXT    NOT NULL,
-    CITY    TEXT            ,
-    COUNTRY TEXT            ,
-
   PRIMARY KEY (UN_ID)
 );
 --*****************************************************************************
@@ -108,9 +105,6 @@ CREATE TABLE SCHOOLS
 (
     SCH_ID  INTEGER NOT NULL,
     TITLE   TEXT    NOT NULL,
-    CITY    TEXT            ,
-    COUNTRY TEXT            ,
-
   PRIMARY KEY (SCH_ID)
 );
 --*****************************************************************************

@@ -1,4 +1,5 @@
 (ns vkmanager.clj.utils
+  "Набор вспомогательных частоиспользуемых функций."
   (:require [clojure.string :as str]
             [clojure.set    :refer [difference]]))
 
@@ -10,22 +11,26 @@
 (def join-by-newline
   (partial str/join "\n"))
 
-(defn align-by ; FIXME: не проходит все тесты
+(defn insert-seq [index s values]
+  (let [before (vec (take index s))
+        after  (vec (drop index s))]
+    (reduce into [before values after])))
+
+(defn align-by
   "Выравнивает строки по ограничителю."
   [delimiter & strings]
-  (let [space   " "
-        pattern (re-pattern (format "[%s]" delimiter))
-        get-index #(str/last-index-of % delimiter)
+  (let [space      " "
+        pattern    (re-pattern (format "[%s]" delimiter))
         max-index  (apply max
-                     (map (partial get-index)
-                           strings))
-
-        add-spaces #(str/join
-                      (str (str/join (repeat (- max-index (get-index %))
-                                             space))
-                            delimiter)
-                      (str/split % pattern))]
-    (vec (map (partial add-spaces) strings))))
+                          (map #(str/last-index-of % delimiter)
+                               strings))]
+    (vec
+     (for [string strings]
+       (let [index         (str/last-index-of string delimiter)
+             vec-string    (vec string)
+             spaces-amount (- max-index index)
+             spaces        (vec (repeat spaces-amount space))]
+         (str/join (insert-seq index vec-string spaces)))))))
 
 (defn flatten1
   "Удаляет один уровень вложенности.

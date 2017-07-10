@@ -55,14 +55,14 @@
            howdy?" :delimiter " "] "Hello, howdy?" )])
 
 (def-test align-by
-  [(test ["|" "first|" "second|"]          ["first |"
-                                            "second|"])
-   (test [" " "first " "second "]          ["first  "
-                                            "second "])
-   (test ["|" "first|" "second|" "third|"] ["first |"
-                                            "second|"
-                                            "third |"])
-  (test ["|" "first|one" "second|one"]     ["first |one"
-                                            "second|one"])
-  (test ["|" "|first" " |second"]          [" |first"
-                                            " |second"])])
+  [(test ["|" "first|" "second|"]           ["first |"
+                                             "second|"])
+   (test [" " "first " "second "]           ["first  "
+                                             "second "])
+   (test ["|" "first|" "second|" "third|"]  ["first |"
+                                             "second|"
+                                             "third |"])
+   (test ["|" "first|one" "second|one"]     ["first |one"
+                                             "second|one"])
+   (test ["|" "|first" " |second"]          [" |first"
+                                             " |second"])])
