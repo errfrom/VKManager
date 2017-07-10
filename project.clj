@@ -1,4 +1,4 @@
-(defproject vkmanager "0.1.0"
+(defproject vkmanager "0.2.0"
   :description "Structuring, processing and filtering public VK data."
   :url "https://bitbucket.org/errfrom/vk-manager"
   :license {:name "MIT License"
