@@ -25,10 +25,16 @@ executable VKManager-exe
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , VKManager
-                     , containers  
+                     , containers
                      , wreq
                      , utf8-string
                      , aeson
+                     , lens
+                     , bytestring
+                     , text
+                     , lens-aeson
+                     , vector
+                     , unordered-containers
   default-language:    Haskell2010
 
 test-suite VKManager-test

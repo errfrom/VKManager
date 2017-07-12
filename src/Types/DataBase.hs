@@ -1,64 +1,56 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module Types.DataBase where
-
-import           Data.Aeson                 (FromJSON(..), Value(Object)
-                                            ,withObject, (.:), (.:?), (.!=))
---import qualified Data.Aeson.Types as ATypes (Parser(..))
 
 data Genger =
   Male
  |Female
  |Unknown
+  deriving (Show)
 
 data DateOfBirth =
   DateOfBirth {year  :: Maybe Int
               ,month :: Maybe Int
-              ,day   :: Maybe Int }
+              ,day   :: Maybe Int}
+  deriving (Show)
 
 data PhoneNumber =
   PhoneNumber {countryCode :: Int
-              ,phoneNumber :: Int }
+              ,phoneNumber :: Int}
+  deriving (Show)
 
-data User = -- TODO: сделать проверку для вложенных конструкторов и обработку JSON
+data User =
   User {uid     :: Int
        ,fName   :: String
        ,sName   :: String
-       ,genger  :: String         -- Genger
-       ,dob     :: Maybe String   -- DateOfBirth
+       ,genger  :: String        -- Genger
+       ,dob     :: Maybe String  -- DateOfBirth
        ,country :: Maybe String
        ,city    :: Maybe String
-       ,phone   :: Maybe String } -- PhoneNumber
+       ,phone   :: Maybe String} -- PhoneNumber
  |Deleted
  |Banned
+  deriving (Show)
 
 data University =
   University {universityId    :: Int
-             ,universityTitle :: String }
+             ,universityTitle :: String}
 
 data School =
   School {schoolId    :: Int
-         ,schoolTitle :: String }
+         ,schoolTitle :: String}
 
 data SocialNetwork =
   SocialNetwork {socialNetworkId    :: Int
-                ,sociakNetworkTitle :: String }
+                ,sociakNetworkTitle :: String}
 
-class DbInteractional t where
-  writeDb ::  t -> IO ()
+data Country =
+  Country {cid  :: Int
+          ,name :: String}
+  deriving (Show)
 
-instance FromJSON User where
-  parseJSON = withObject "user" $ \obj -> do
-    deactivated <- obj .:? "deactivated"
-    case deactivated of
-      "deleted" -> pure Deleted
-      "banned"  -> Banned
-      _         -> User <$> (obj .:  "uid")
-                        <*> (obj .:  "first_name")
-                        <*> (obj .:  "last_name")
-                        <*> (obj .:  "sex")
-                        <*> (obj .:? "bdate"        .!= Nothing)
-                        <*> (obj .:? "country"      .!= Nothing)
-                        <*> (obj .:? "city"         .!= Nothing)
-                        <*> (obj .:? "mobile_phone" .!= Nothing)
+data City =
+  City {cid  :: Int
+       ,name :: String}
+  deriving (Show)
