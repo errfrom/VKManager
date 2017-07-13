@@ -24,10 +24,10 @@ data User =
   User {uid     :: Int
        ,fName   :: String
        ,sName   :: String
-       ,genger  :: String        -- Genger
+       ,genger  :: Int           -- Genger
        ,dob     :: Maybe String  -- DateOfBirth
-       ,country :: Maybe String
-       ,city    :: Maybe String
+       ,country :: Maybe Int
+       ,city    :: Maybe Int
        ,phone   :: Maybe String} -- PhoneNumber
  |Deleted
  |Banned
