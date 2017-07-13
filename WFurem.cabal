@@ -36,6 +36,7 @@ executable VKManager-exe
                      , vector
                      , unordered-containers
                      , regex-posix
+                     , regex-compat
   default-language:    Haskell2010
 
 test-suite VKManager-test

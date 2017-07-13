@@ -22,7 +22,7 @@ module Parser.Receiver
        ,receive) where
 
 import           Types.Receive
-import qualified Utils                as Utils   (mapToString, separateByCommas
+import qualified Internal.Utils       as Utils   (mapToString, separateByCommas
                                                  ,mapTuple, joinNoDel)
 import qualified Data.Vector          as Vec     (toList)
 import qualified Data.Maybe           as M       (fromJust)

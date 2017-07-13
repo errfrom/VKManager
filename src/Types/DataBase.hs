@@ -3,6 +3,8 @@
 
 module Types.DataBase where
 
+type PhoneNumber = String
+
 data Genger =
   Male
  |Female
@@ -15,11 +17,6 @@ data DateOfBirth =
               ,year  :: Maybe Int}
   deriving (Show)
 
-data PhoneNumber =
-  PhoneNumber {countryCode :: Int
-              ,phoneNumber :: Int}
-  deriving (Show)
-
 data User =
   User {uid     :: Int
        ,fName   :: String
@@ -28,7 +25,7 @@ data User =
        ,dob     :: Maybe DateOfBirth
        ,country :: Maybe Int
        ,city    :: Maybe Int
-       ,phone   :: Maybe String} -- PhoneNumber
+       ,phone   :: Maybe PhoneNumber}
  |Deleted
  |Banned
   deriving (Show)

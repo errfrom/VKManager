@@ -1,11 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Utils
+module Internal.Utils
        (separateByCommas
        ,mapToString
        ,mapTuple
        ,join
-       ,joinNoDel) where
+       ,joinNoDel
+       ,removeFromString
+       ,removeSpaces
+       ,removeManyFromString) where
 
 import Data.Monoid (Monoid(..), (<>))
 
@@ -25,3 +28,18 @@ join delimiter (x:xs) =
 
 joinNoDel :: (Monoid mon) => [mon] -> mon
 joinNoDel mons@(mon:_) = join (mempty mon) mons
+
+removeFromString :: Char -> String -> String
+removeFromString _ [] = []
+removeFromString ch (x:xs)
+ |x == ch   = removeFromString ch xs
+ |otherwise = x : (removeFromString ch xs)
+
+removeSpaces :: String -> String
+removeSpaces = (\string -> removeFromString ' ' string)
+
+removeManyFromString :: String -> String -> String
+removeManyFromString []      string = string
+removeManyFromString (ch:cs) string =
+  let nstring = removeFromString ch string
+  in removeManyFromString cs nstring
