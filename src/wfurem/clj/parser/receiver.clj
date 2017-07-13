@@ -1,11 +1,11 @@
-(ns vkmanager.clj.parser.receiver
+(ns wfurem.clj.parser.receiver
   "Модуль, задачей которого является
    получение информации. Интерфейс
    представлен функцией receive, которая
    на основе функции формирования URL,
    возвращает JSON представление того или иного
    объекта."
-   (:require [vkmanager.clj.utils :as utils]
+   (:require [wfurem.clj.utils    :as utils]
              [clj-http.client     :as http]
              [clojure.data.json   :as json])
    (:import  [java.net UnknownHostException]))

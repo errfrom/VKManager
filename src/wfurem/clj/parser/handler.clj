@@ -1,13 +1,13 @@
-(ns vkmanager.clj.parser.handler
+(ns wfurem.clj.parser.handler
   "Модуль, реализующий поддержку преобразования json-представления,
    полученного через VK-API, в записи определенные в модуле data, которые
    имеют интерфейс взаимодействия непосредственно с базой данных."
-  (:require [vkmanager.clj.utils :as utils]
-            [vkmanager.clj.data  :refer [map->User
-                                         map->School
-                                         map->University
-                                         map->UserUniver
-                                         map->UserSchool]]))
+  (:require [wfurem.clj.utils :as utils]
+            [wfurem.clj.data  :refer [map->User
+                                      map->School
+                                      map->University
+                                      map->UserUniver
+                                      map->UserSchool]]))
 
 (defn- find-name-by-cid
   "Возвращает название страны/города

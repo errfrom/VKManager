@@ -1,7 +1,7 @@
-(ns vkmanager.clj.utils_test
-  (:require [vkmanager.clj.test  :refer :all]
-            [vkmanager.clj.utils :refer :all])
-  (:import  [vkmanager.clj.test Test]))
+(ns wfurem.clj.utils_test
+  (:require [wfurem.clj.test  :refer :all]
+            [wfurem.clj.utils :refer :all])
+  (:import  [wfurem.clj.test  Test]))
 
 (def-test flatten1
   [(test [1 2 [3 4]]     [1 2 3 4]     :one true)

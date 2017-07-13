@@ -1,12 +1,12 @@
-(ns vkmanager.clj.utils
+(ns wfurem.clj.utils
   "Набор вспомогательных частоиспользуемых функций."
   (:require [clojure.string :as str]
             [clojure.set    :refer [difference]]))
 
 (defn normalize-text [text & {:keys [delimiter] :or {delimiter ""}}]
-  (-> text (#(str/split % #" |\n"))
-           (#(filter (comp not nil? seq) %))
-           (#(str/join delimiter %))))
+  (->> text (#(str/split % #" |\n"))
+            (filter (comp not nil? seq))
+            (str/join delimiter)))
 
 (def join-by-newline
   (partial str/join "\n"))

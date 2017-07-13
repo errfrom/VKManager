@@ -1,2 +1,2 @@
 #!/bin/sh
-java -jar ./target/uberjar/vkmanager-0.1.0-standalone.jar "$@"
+java -jar ./target/uberjar/wfurem-0.1.0-standalone.jar "$@"

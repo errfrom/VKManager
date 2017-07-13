@@ -1,11 +1,11 @@
-(ns vkmanager.clj.parser.main
+(ns wfurem.clj.parser.main
   "Входная точка парсера.
    Организовывает работу последовательную работу
    модулей 'receiver' и 'handler'."
-  (:require [vkmanager.clj.parser.receiver :as receiver]
-            [vkmanager.clj.parser.handler  :as handler]
-            [vkmanager.clj.db              :as db]
-            [vkmanager.clj.data            :refer [write-db!]])
+  (:require [wfurem.clj.parser.receiver :as receiver]
+            [wfurem.clj.parser.handler  :as handler]
+            [wfurem.clj.db              :as db]
+            [wfurem.clj.data            :refer [write-db!]])
   (:import [vkmanager.clj.data User]
            java.lang.System))
 

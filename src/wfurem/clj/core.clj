@@ -1,18 +1,18 @@
-(ns vkmanager.clj.core
+(ns wfurem.clj.core
   "Точка входа программы.
    Представляет консольный пользовательский
    интерфейс."
   (:gen-class)
-  (:require [vkmanager.clj.db          :as db]
-            [vkmanager.clj.utils       :as utils]
-            [vkmanager.clj.parser.main :as parser]
-            [clojure.string            :as str]
-            [clojure.tools.cli         :refer [parse-opts]])
+  (:require [wfurem.clj.db          :as db]
+            [wfurem.clj.utils       :as utils]
+            [wfurem.clj.parser.main :as parser]
+            [clojure.string         :as str]
+            [clojure.tools.cli      :refer [parse-opts]])
   (:import java.lang.System))
 
 (defn- usage [summary]
   (utils/join-by-newline (utils/flatten1
-    ["vk-manager"
+    ["WFurem"
      "Добро пожаловать!"
      ""
      "Использование: ./run [опции] действие"

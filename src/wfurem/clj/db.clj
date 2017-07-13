@@ -1,7 +1,7 @@
-(ns vkmanager.clj.db
-  (:require [vkmanager.clj.utils :as utils]
-            [clojure.string      :as str]
-            [clojure.java.io     :as io])
+(ns wfurem.clj.db
+  (:require [wfurem.clj.utils :as utils]
+            [clojure.string   :as str]
+            [clojure.java.io  :as io])
   (:import  java.lang.System
             java.sql.DriverManager
             java.sql.SQLException))

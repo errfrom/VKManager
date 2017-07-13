@@ -1,7 +1,7 @@
-(ns vkmanager.clj.data
-  (:require [vkmanager.clj.db    :as db]
-            [vkmanager.clj.utils :as utils]
-            [clojure.string      :as str]))
+(ns wfurem.clj.data
+  (:require [wfurem.clj.db    :as db]
+            [wfurem.clj.utils :as utils]
+            [clojure.string   :as str]))
 
 (defprotocol DbInteractional
   "Протокол, определяющий свойство объекта

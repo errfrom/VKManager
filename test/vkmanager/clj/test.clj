@@ -1,4 +1,4 @@
-(ns vkmanager.clj.test
+(ns wfurem.clj.test
   (:require [clojure.test :refer :all]))
 
 (defrecord Test [input output])

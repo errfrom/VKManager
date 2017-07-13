@@ -1,6 +1,6 @@
-(defproject vkmanager "0.2.0"
+(defproject wfurem "0.2.0"
   :description "Structuring, processing and filtering public VK data."
-  :url "https://bitbucket.org/errfrom/vk-manager"
+  :url "https://github.com/errfrom/WFurem"
   :license {:name "MIT License"
             :url "https://choosealicense.com/licenses/mit/"}
   :dependencies [[org.clojure/clojure    "1.8.0"]
