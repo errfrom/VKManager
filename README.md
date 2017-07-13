@@ -1,4 +1,4 @@
-# VKManager (Haskell)
+# WFurem (Haskell)
 
 Средство, предназначенное для систематической  
 выгрузки общедоступной информации, размещенной  
@@ -9,4 +9,4 @@
 ## Лицензия
 
 *Copyright © 2017 Ivanov Dmitry (errfrom)  
-VKManager is distributed under the terms of the MIT license.*
+WFurem is distributed under the terms of the MIT license.*
