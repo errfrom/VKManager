@@ -23,7 +23,7 @@ module Parser.Receiver
 
 import           Types.Receive
 import qualified Utils                as Utils   (mapToString, separateByCommas
-                                                 ,mapTuple)
+                                                 ,mapTuple, joinNoDel)
 import qualified Data.Vector          as Vec     (toList)
 import qualified Data.Maybe           as M       (fromJust)
 import qualified Data.Text            as Text    (pack)
@@ -44,9 +44,9 @@ usersURL uids accessToken =
                   ,"sex", "bdate", "country", "city", "contacts"
                   ,"education", "schools"]
       strUids   = map show uids
-      reqParams = Map.fromList [("user_ids"    ,(Utils.separateByCommas strUids))
+      reqParams = Map.fromList [("user_ids",(Utils.separateByCommas strUids))
                                ,("access_token",accessToken)
-                               ,("fields"      ,(Utils.separateByCommas fields))]
+                               ,("fields",(Utils.separateByCommas fields))]
   in URL HTTPS body reqParams
 
 -- | Формирует ссылку получения названий стран по их идентификаторам
@@ -54,7 +54,7 @@ countriesURL :: [Id] -> AccessToken -> URL
 countriesURL cids accessToken =
   let body      = "api.vk.com/method/database.getCountriesById"
       strCids   = Utils.mapToString cids
-      reqParams = Map.fromList [("country_ids" ,(Utils.separateByCommas strCids))
+      reqParams = Map.fromList [("country_ids",(Utils.separateByCommas strCids))
                                ,("access_token",accessToken)]
   in URL HTTPS body reqParams
 
@@ -63,19 +63,26 @@ citiesURL :: [Id] -> AccessToken -> URL
 citiesURL cids accessToken =
   let body =  "api.vk.com/method/database.getCitiesById"
       strCids = Utils.mapToString cids
-      reqParams = Map.fromList [("city_ids"    ,(Utils.separateByCommas strCids))
-                               ,("access_token",accessToken)]
+      reqParams = Map.fromList [("city_ids", (Utils.separateByCommas strCids))
+                               ,("access_token", accessToken)]
   in URL HTTPS body reqParams
 
 -----------------------------------------------------------------------------
 
 setHeaders :: Network.Options -> Network.Options
 setHeaders =
-  let hdrsList = [("Accept"         ,"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+  let hdrsList = [("Accept",         (Utils.joinNoDel
+                                     ["text/html,application/"
+                                     ,"xhtml+xml,application/xml;"
+                                     ,"q=0.9,image/webp,*/*;q=0.8"]))
+                 ,("User-Agent"     ,(Utils.joinNoDel
+                                     ["Mozilla/5.0 (X11; Linux x86_64) "
+                                     ,"AppleWebKit/537.36 (KHTML, like Gecko) "
+                                     ,"Chrome/58.0.3029.110 Safari/537.36 "
+                                     ,"OPR/45.0.2552.888"]))
                  ,("Accept-Charset" ,"utf-8")
                  ,("Accept-Encoding","gzip, deflate, sdch, br")
-                 ,("Accept-Language","en-US,en;q=0.8")
-                 ,("User-Agent"     ,"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36 OPR/45.0.2552.888")]
+                 ,("Accept-Language","en-US,en;q=0.8")]
   in do Network.headers .~ hdrsList
 
 setParams :: URL -> Network.Options -> Network.Options
@@ -96,7 +103,8 @@ buildUrlStringWithoutParams URL{..} =
                       HTTPS -> "https://"
   in strProtocol ++ body
 
-receive :: ([Id] -> AccessToken -> URL) -> [Id] -> AccessToken -> IO (Maybe LBS.ByteString)
+receive :: ([Id] -> AccessToken -> URL) -> [Id] -> AccessToken
+                                                -> IO (Maybe LBS.ByteString)
 receive funReceiveURL ids accessToken =
   let url        = funReceiveURL ids accessToken
       setParams' = setParams url

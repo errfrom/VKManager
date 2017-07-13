@@ -10,9 +10,9 @@ data Genger =
   deriving (Show)
 
 data DateOfBirth =
-  DateOfBirth {year  :: Maybe Int
-              ,month :: Maybe Int
-              ,day   :: Maybe Int}
+  DateOfBirth {day   :: Int
+              ,month :: Int
+              ,year  :: Maybe Int}
   deriving (Show)
 
 data PhoneNumber =
@@ -24,8 +24,8 @@ data User =
   User {uid     :: Int
        ,fName   :: String
        ,sName   :: String
-       ,genger  :: Int           -- Genger
-       ,dob     :: Maybe String  -- DateOfBirth
+       ,genger  :: Genger
+       ,dob     :: Maybe DateOfBirth
        ,country :: Maybe Int
        ,city    :: Maybe Int
        ,phone   :: Maybe String} -- PhoneNumber

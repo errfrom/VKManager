@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE FlexibleContexts  #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -31,6 +33,8 @@ import qualified Data.HashMap.Strict  as HM     (lookup)
 import qualified Data.ByteString.Lazy as LBS    (ByteString(..))
 import qualified Data.Maybe           as M      (fromJust)
 import qualified Data.Vector          as Vec    (toList)
+import qualified Data.Text            as Text   (unpack)
+import           Text.Regex.Posix               ((=~))
 
 -----------------------------------------------------------------------------
 
@@ -40,24 +44,50 @@ instance FromJSON Country where
             <*> (obj .: "name")
 
 instance FromJSON User where
-  parseJSON (Aeson.Object obj) =
-    User <$> (obj .:  "uid")
-         <*> (obj .:  "first_name")
-         <*> (obj .:  "last_name")
-         <*> (obj .:  "sex")
-         <*> (obj .:? "bdate")
-         <*> (obj .:? "country")
-         <*> (obj .:? "city")
-         <*> (obj .:? "mobile_phone")
+  parseJSON (Aeson.Object obj) = do
+    let genger = getGenger $ HM.lookup "sex" obj
+        dob    = getDOB    $ HM.lookup "bdate" obj
+    uid     <- (obj .:  "uid")
+    fName   <- (obj .:  "first_name")
+    sName   <- (obj .:  "last_name")
+    country <- (obj .:? "country")
+    city    <- (obj .:? "city")
+    phone   <- (obj .:? "mobile_phone")
+    return User{..}
+    where getGenger sex = case sex of
+                          Just (ATypes.Number 1.0) -> Female
+                          Just (ATypes.Number 2.0) -> Male
+                          _        -> Unknown
+          getDOB Nothing = Nothing
+          getDOB (Just (ATypes.String bdate)) = (go_getDOB . Text.unpack) bdate
+          -- getDOB распаковывает полученное значение даты рождения
+          -- и передает функции go_getDOB распакованное значение в виде строки
+          -- go_getDOB представляет логику, тогда как getDOB - интерфейс
+          go_getDOB bdate
+           |isMatches dmyMatch = Just $ (applyGroups3 . getGroups) dmyMatch
+           |isMatches dmMatch  = Just $ (applyGroups2 . getGroups) dmMatch
+           |otherwise          = Nothing
+            where dmReg     = "^([1-2][0-9]|0[1-9]|3[0-1]).(0[1-9]|1[0-2])$"
+                  dmyReg    = (init dmReg) ++ ".(19[0-9][0-9]|200[0-3])$"
+                  isMatches = (not . null)
+                  dmyMatch  = (bdate =~ dmyReg :: [[String]])
+                  dmMatch   = (bdate =~ dmReg  :: [[String]])
+                  getGroups match =
+                    let groups = (tail . head) match
+                    in map (read :: String -> Int) groups
+                  applyGroups2 (d:m:_)   = DateOfBirth d m Nothing
+                  applyGroups3 (d:m:y:_) = DateOfBirth d m (Just y)
 
 instance FromJSON City where
   parseJSON (Aeson.Object obj) =
     City <$> (obj .: "cid")
          <*> (obj .: "name")
 
+-----------------------------------------------------------------------------
+
 checkDeactivated :: ATypes.Value -> Maybe ATypes.Value
-checkDeactivated (Aeson.Object val) =
-  let deactivated = HM.lookup "deactivated" val
+checkDeactivated (Aeson.Object obj) =
+  let deactivated = HM.lookup "deactivated" obj
   in deactivated
 
 getResponseJSON :: LBS.ByteString -> Maybe [ATypes.Value]
