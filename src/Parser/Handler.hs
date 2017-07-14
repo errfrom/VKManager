@@ -16,12 +16,17 @@
 -----------------------------------------------------------------------------
 
 module Parser.Handler
-       (parseUser
-       ,parseCity
-       ,parseCountry
-       ,handle) where
+       ( handleChunk
+       , handleViaFun
+       , parseCity
+       , parseCountry ) where
 
-import           Types.DataBase
+-- В данном модуле не используются конструкторы-коннекторы и строители
+import           Types.DataBase       hiding    (SchoolConnect(..)
+                                                ,UniversityConnect(..)
+                                                ,SNetworkConnect(..)
+                                                ,connectUserSchools
+                                                ,connectUserUniver)
 import           Internal.Phones
 import qualified Internal.Phones      as Phones (parsePhoneNumber, fromType)
 import           Text.Regex.Posix               ((=~))
@@ -34,10 +39,11 @@ import qualified Data.Aeson           as Aeson  (Value(Object))
 import qualified Data.Aeson.Lens      as ALens  (key)
 import qualified Data.HashMap.Strict  as HM     (lookup)
 import qualified Data.ByteString.Lazy as LBS    (ByteString(..))
-import qualified Data.Maybe           as M      (fromJust)
+import qualified Data.Maybe           as M      (fromJust, catMaybes)
 import qualified Data.Vector          as Vec    (toList)
 import qualified Data.Text            as Text   (Text(..), unpack)
 
+-- FromJSON instances
 -----------------------------------------------------------------------------
 
 instance FromJSON User where
@@ -90,6 +96,16 @@ instance FromJSON User where
                Unrecognized -> Nothing
                _            -> Just $ Phones.fromType parsedPhone
 
+instance FromJSON School where
+  parseJSON (Aeson.Object obj) =
+    School <$> (obj .: "id")
+           <*> (obj .: "name")
+
+instance FromJSON University where
+  parseJSON (Aeson.Object obj) =
+    University <$> (obj .: "university")
+               <*> (obj .: "university_name")
+
 instance FromJSON City where
   parseJSON (Aeson.Object obj) =
     City <$> (obj .: "cid")
@@ -100,19 +116,14 @@ instance FromJSON Country where
     Country <$> (obj .: "cid")
             <*> (obj .: "name")
 
+instance FromJSON SocialNetworks where
+  parseJSON (Aeson.Object obj) =
+    SocialNetworks <$> (obj .:? "instagram")
+                   <*> (obj .:? "twitter")
+                   <*> (obj .:? "facebook")
+
+-- Parse functions
 -----------------------------------------------------------------------------
-
-checkDeactivated :: ATypes.Value -> Maybe ATypes.Value
-checkDeactivated (Aeson.Object obj) =
-  let deactivated = HM.lookup "deactivated" obj
-  in deactivated
-
-getResponseJSON :: LBS.ByteString -> Maybe [ATypes.Value]
-getResponseJSON json =
-  let responseJson = M.fromJust $ json ^? ALens.key "response"
-  in case responseJson of
-     ATypes.Array arr -> Just (Vec.toList arr)
-     _                -> Nothing
 
 defaultParse :: (FromJSON a) => ATypes.Value -> Maybe a
 defaultParse val = ATypes.parseMaybe parseJSON val
@@ -124,6 +135,10 @@ parseUser val =
     Just "deleted" -> Just Deleted
     Just "banned"  -> Just Banned
     Nothing        -> defaultParse val
+  where checkDeactivated :: ATypes.Value -> Maybe ATypes.Value
+        checkDeactivated (Aeson.Object obj) =
+          let deactivated = HM.lookup "deactivated" obj
+          in deactivated
 
 parseCountry :: ATypes.Value -> Maybe Country
 parseCountry = defaultParse
@@ -131,8 +146,66 @@ parseCountry = defaultParse
 parseCity :: ATypes.Value -> Maybe City
 parseCity = defaultParse
 
-handle :: (ATypes.Value -> Maybe a) -> Maybe LBS.ByteString -> Maybe [Maybe a]
-handle parseFun Nothing     = Nothing
-handle parseFun (Just json) =
-  let vals = (M.fromJust . getResponseJSON) json
-  in Just $ map parseFun vals
+parseSchool :: ATypes.Value -> Maybe School
+parseSchool = defaultParse
+
+parseSNetworks :: ATypes.Value -> Maybe SocialNetworks
+parseSNetworks = defaultParse
+
+parseSchools :: ATypes.Value -> Maybe [Maybe School]
+parseSchools (Aeson.Object obj) =
+  case (HM.lookup "schools" obj) of
+    Just arr -> let schoolObjs = (M.fromJust . fromArray) arr
+                in Just $ map parseSchool schoolObjs
+    Nothing  -> Nothing
+
+parseUniversity :: ATypes.Value -> Maybe University
+parseUniversity = defaultParse
+
+-- Handle functions
+-----------------------------------------------------------------------------
+
+-- | По переданному JSON представлению пользователей
+-- возвращает список DataChunk, где представлен
+-- пользователь, его школ(а/ы), университет и другие
+-- социальные сети, в которых он зарегистрирован
+handleChunk :: LBS.ByteString -> Maybe [DataChunk]
+handleChunk json =
+  let respJSON = getResponseJSON json
+  in case respJSON of
+     Nothing   -> Nothing
+     Just vals -> Just $ worker vals
+  where worker :: [ATypes.Value] -> [DataChunk]
+        worker []       = []
+        worker (val:xs) =
+          let mUser     = parseUser val
+              schools   = M.catMaybes <$> parseSchools val
+              univer    = parseUniversity val
+              sNetworks = parseSNetworks val
+          in case mUser of
+            Just user -> DataChunk{..} : (worker xs)
+            Nothing   -> worker xs
+
+-- | Обработка, основанная на логике parseFun
+-- Полиморфная сущность этой функции, позволяет
+-- обобщенно обрабатывать JSON представления
+-- городов и стран
+handleViaFun :: (ATypes.Value -> Maybe a) -> LBS.ByteString -> Maybe [Maybe a]
+handleViaFun parseFun json =
+  case (getResponseJSON json) of
+    Nothing   -> Nothing
+    Just vals -> Just $ map parseFun vals
+
+-- Additional functions
+-----------------------------------------------------------------------------
+
+fromArray :: ATypes.Value -> Maybe [ATypes.Value]
+fromArray (ATypes.Array arr) = Just (Vec.toList arr)
+fromArray _                  = Nothing
+
+getResponseJSON :: LBS.ByteString -> Maybe [ATypes.Value]
+getResponseJSON json =
+  let responseJson =  json ^? ALens.key "response"
+  in case responseJson of
+     Just arr -> fromArray arr
+     _        -> Nothing

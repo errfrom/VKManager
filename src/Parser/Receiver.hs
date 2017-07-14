@@ -34,6 +34,7 @@ import qualified Network.Wreq         as Network (Options(..), responseBody
                                                  ,getWith, headers, params
                                                  ,defaults)
 
+-- URL builders
 -----------------------------------------------------------------------------
 
 -- | Формирует ссылку получения информации пользователей 'users.get'
@@ -42,7 +43,7 @@ usersURL uids accessToken =
   let body      = "api.vk.com/method/users.get"
       fields    = ["deactivated", "uid", "first_name", "last_name"
                   ,"sex", "bdate", "country", "city", "contacts"
-                  ,"education", "schools"]
+                  ,"education", "schools", "connections"]
       strUids   = map show uids
       reqParams = Map.fromList [("user_ids",(Utils.separateByCommas strUids))
                                ,("access_token",accessToken)
@@ -67,6 +68,7 @@ citiesURL cids accessToken =
                                ,("access_token", accessToken)]
   in URL HTTPS body reqParams
 
+-- Request setters
 -----------------------------------------------------------------------------
 
 setHeaders :: Network.Options -> Network.Options
@@ -91,6 +93,7 @@ setParams URL{..}  =
                      |param <- (Map.toList queryParams)]
   in do Network.params .~ convertedMap
 
+-- Receivers
 -----------------------------------------------------------------------------
 
 -- | Создает строку вида {protocol}{body},
@@ -112,5 +115,3 @@ receive funReceiveURL ids accessToken =
   in do
       req <- Network.getWith opts (buildUrlStringWithoutParams url)
       return (req ^? Network.responseBody)
-
------------------------------------------------------------------------------

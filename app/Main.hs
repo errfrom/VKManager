@@ -7,6 +7,8 @@ import           Parser.Handler
 import           Data.Semigroup                    ((<>))
 import           Control.Applicative               ((<**>))
 import qualified Internal.Utils      as Utils      (joinByNewline, joinNoDel)
+import qualified Collect             as Collect    (collect)
+import           Collect                           (CollectOptions(..))
 import qualified Options.Applicative as OptsParser (-- * Конструкторы
                                                      ParserInfo(..), Parser(..)
                                                     ,ParserPrefs(..)
@@ -26,12 +28,7 @@ import qualified Options.Applicative as OptsParser (-- * Конструктор�
                                                     -- * Другие функции
                                                     ,customExecParser)
 
-data Options =
-  CollectOpts { pathDB         :: String
-              , accessToken    :: String
-              , startUID       :: Int
-              , maxRecords     :: Int }
-  deriving (Show)
+type Options = Collect.CollectOptions
 
 collectOptions :: OptsParser.Parser Options
 collectOptions =
@@ -90,5 +87,5 @@ parserInfo =
 
 main :: IO ()
 main = do
-  options <- OptsParser.customExecParser parserPrefs parserInfo
-  (print . show) options
+  collectOptions <- OptsParser.customExecParser parserPrefs parserInfo
+  Collect.collect collectOptions
