@@ -6,6 +6,7 @@ module Internal.Utils
        ,mapTuple
        ,join
        ,joinNoDel
+       ,joinByNewline
        ,removeFromString
        ,removeSpaces
        ,removeManyFromString) where
@@ -28,6 +29,9 @@ join delimiter (x:xs) =
 
 joinNoDel :: (Monoid mon) => [mon] -> mon
 joinNoDel mons@(mon:_) = join (mempty mon) mons
+
+joinByNewline :: [String] -> String
+joinByNewline mons = join "\n" mons
 
 removeFromString :: Char -> String -> String
 removeFromString _ [] = []
