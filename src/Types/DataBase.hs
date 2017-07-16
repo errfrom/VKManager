@@ -29,8 +29,8 @@ module Types.DataBase
 
 type PhoneNumber = String
 
-data DataChunk = DataChunk
-  { user      :: User
+data DataChunk a = DataChunk
+  { user      :: User a
   , schools   :: Maybe [School]
   , univer    :: Maybe University
   , sNetworks :: Maybe SocialNetworks }
@@ -42,14 +42,18 @@ data Genger =
  | Unknown
    deriving (Show)
 
-data User =
+-- ^ Используется полиморфный тип a,
+-- т.к. изначально страны и города
+-- представлены их идентификаторами типа Int,
+-- а потом заменяются на их названия строкового типа
+data User a =
    User { uid     :: Int
         , fName   :: String
         , sName   :: String
         , genger  :: Genger
         , dob     :: Maybe DateOfBirth
-        , country :: Maybe Int
-        , city    :: Maybe Int
+        , country :: Maybe a
+        , city    :: Maybe a
         , phone   :: Maybe PhoneNumber }
  | Deleted
  | Banned
@@ -93,21 +97,21 @@ data SNetworkConnect = SNetworkConnect
   deriving (Show)
 
 data Country = Country
-  { cid  :: Int
-  , name :: String }
+  { countryId   :: Int
+  , countryName :: String }
   deriving (Show)
 
 data City = City
-  { cid  :: Int
-  , name :: String }
+  { cityId   :: Int
+  , cityName :: String }
   deriving (Show)
 
 -- Data constructor builders
 -----------------------------------------------------------------------------
-connectUserSchools :: User -> [School] -> [SchoolConnect]
+connectUserSchools :: User a -> [School] -> [SchoolConnect]
 connectUserSchools _ [] = []
 connectUserSchools user@User{..} (School{..}:schools) =
   SchoolConnect{..} : connectUserSchools user schools
 
-connectUserUniver :: User -> University -> UniversityConnect
+connectUserUniver :: User a -> University -> UniversityConnect
 connectUserUniver User{..} University{..} = UniversityConnect{..}

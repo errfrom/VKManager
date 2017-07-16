@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -16,7 +17,7 @@
 -----------------------------------------------------------------------------
 
 module Parser.Handler
-       ( handleChunk
+       ( handleChunks
        , handleViaFun
        , parseCity
        , parseCountry ) where
@@ -46,7 +47,7 @@ import qualified Data.Text            as Text   (Text(..), unpack)
 -- FromJSON instances
 -----------------------------------------------------------------------------
 
-instance FromJSON User where
+instance FromJSON (User Int) where
   parseJSON (Aeson.Object obj) = do
     let genger = getGenger $ getValueOf "sex"
         dob    = getDOB    $ getValueOf "bdate"
@@ -128,7 +129,7 @@ instance FromJSON SocialNetworks where
 defaultParse :: (FromJSON a) => ATypes.Value -> Maybe a
 defaultParse val = ATypes.parseMaybe parseJSON val
 
-parseUser :: ATypes.Value -> Maybe User
+parseUser :: ATypes.Value -> Maybe (User Int)
 parseUser val =
   let deactivated = checkDeactivated val
   in case deactivated of
@@ -169,13 +170,13 @@ parseUniversity = defaultParse
 -- возвращает список DataChunk, где представлен
 -- пользователь, его школ(а/ы), университет и другие
 -- социальные сети, в которых он зарегистрирован
-handleChunk :: LBS.ByteString -> Maybe [DataChunk]
-handleChunk json =
+handleChunks :: LBS.ByteString -> Maybe [DataChunk Int]
+handleChunks json =
   let respJSON = getResponseJSON json
   in case respJSON of
      Nothing   -> Nothing
      Just vals -> Just $ worker vals
-  where worker :: [ATypes.Value] -> [DataChunk]
+  where worker :: [ATypes.Value] -> [DataChunk Int]
         worker []       = []
         worker (val:xs) =
           let mUser     = parseUser val
@@ -190,11 +191,11 @@ handleChunk json =
 -- Полиморфная сущность этой функции, позволяет
 -- обобщенно обрабатывать JSON представления
 -- городов и стран
-handleViaFun :: (ATypes.Value -> Maybe a) -> LBS.ByteString -> Maybe [Maybe a]
+handleViaFun :: (ATypes.Value -> Maybe a) -> LBS.ByteString -> Maybe [a]
 handleViaFun parseFun json =
   case (getResponseJSON json) of
     Nothing   -> Nothing
-    Just vals -> Just $ map parseFun vals
+    Just vals -> Just $ (M.catMaybes . map parseFun) vals
 
 -- Additional functions
 -----------------------------------------------------------------------------

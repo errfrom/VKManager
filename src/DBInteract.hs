@@ -1,9 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module DBInteract
        (initDB
        ,getStartValue) where
 
+import           Types.DataBase
 import qualified Internal.Utils         as Utils  (endsWith)
 import qualified System.IO              as IO     (FilePath, readFile)
 import qualified System.FilePath.Posix  as Posix  (pathSeparator)
@@ -11,13 +14,17 @@ import qualified System.Directory       as Dir    (doesFileExist
                                                   ,doesDirectoryExist
                                                   ,getCurrentDirectory)
 import qualified Data.Text              as Text   (pack)
+import qualified Data.Int               as Int    (Int64)
 import qualified Data.List.Split        as Split  (endBy)
-import qualified Database.SQLite.Simple as SQLite (ResultError(..), Connection
-                                                  ,open, close, execute_
-                                                  ,query_)
+import qualified Database.SQLite.Simple as SQLite (ResultError(..), SQLData(..)
+                                                  ,Connection, open, close
+                                                  ,execute_, query_)
+import           Database.SQLite.Simple           (ToRow(..))
 import           Database.SQLite.Simple.Types     (Query(..))
 import           Control.Exception                (catch)
 
+-- Basic functional
+-----------------------------------------------------------------------------
 refactorDBPath :: IO.FilePath -> IO (IO.FilePath)
 refactorDBPath pathToDB = do
    isDirectory <- Dir.doesDirectoryExist pathToDB
@@ -68,3 +75,17 @@ getStartValue conn = do
   [[maxUID]] <- catch (SQLite.query_ conn "SELECT MAX(UID) FROM USERS")
                       (\(SQLite.ConversionFailed _ _ _) -> do return [[0]])
   return (succ maxUID)
+
+-- ToRow instances
+-----------------------------------------------------------------------------
+instance ToRow University where
+  toRow University{..} = toRow (universityId, universityTitle)
+
+instance ToRow UniversityConnect where
+  toRow UniversityConnect{..} = toRow (uid, universityId)
+
+instance ToRow School where
+  toRow School{..} = toRow (schoolId, schoolTitle)
+
+instance ToRow SchoolConnect where
+  toRow SchoolConnect{..} = toRow (uid, schoolId)

@@ -9,9 +9,11 @@ module Internal.Utils
        ,joinByNewline
        ,removeFromString
        ,removeSpaces
-       ,removeManyFromString) where
+       ,removeManyFromString
+       ,endsWith) where
 
-import Data.Monoid (Monoid(..), (<>))
+import           Data.Monoid (Monoid(..), (<>))
+import qualified Data.Text as Text (isSuffixOf, pack)
 
 separateByCommas :: [String] -> String
 separateByCommas l = tail $ foldl (\ x y -> x ++ "," ++ y) "" l
@@ -47,3 +49,6 @@ removeManyFromString []      string = string
 removeManyFromString (ch:cs) string =
   let nstring = removeFromString ch string
   in removeManyFromString cs nstring
+
+endsWith :: String -> String -> Bool
+endsWith sub str = Text.isSuffixOf (Text.pack sub) (Text.pack str)
