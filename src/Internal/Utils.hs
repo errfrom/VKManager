@@ -10,10 +10,13 @@ module Internal.Utils
        ,removeFromString
        ,removeSpaces
        ,removeManyFromString
-       ,endsWith) where
+       ,endsWith
+       ,cleanAndPrint) where
 
-import           Data.Monoid (Monoid(..), (<>))
-import qualified Data.Text as Text (isSuffixOf, pack)
+import           Data.Monoid        (Monoid(..), (<>))
+import           Control.Concurrent (threadDelay)
+import qualified Data.Text as Text  (isSuffixOf, pack)
+import qualified System.IO as Sys   (stdout, hPutStr, hFlush)
 
 separateByCommas :: [String] -> String
 separateByCommas l = tail $ foldl (\ x y -> x ++ "," ++ y) "" l
@@ -52,3 +55,8 @@ removeManyFromString (ch:cs) string =
 
 endsWith :: String -> String -> Bool
 endsWith sub str = Text.isSuffixOf (Text.pack sub) (Text.pack str)
+
+cleanAndPrint :: String -> IO ()
+cleanAndPrint text = do
+  Sys.hPutStr Sys.stdout ("\r" ++ text ++ ([1..100] >> " "))
+  Sys.hFlush Sys.stdout

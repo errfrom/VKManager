@@ -21,11 +21,9 @@ module Parser.Receiver
        , receiveCountries ) where
 
 import           Control.Lens                    ((.~), (^?))
-import           Control.Exception               (catch)
+import           Control.Exception               (SomeException(..), catch)
 import           Control.Concurrent              (threadDelay)
-import qualified Internal.Utils       as Utils   (mapToString, separateByCommas
-                                                 ,mapTuple, joinNoDel
-                                                 ,joinByNewline)
+import qualified Internal.Utils       as Utils
 import qualified Data.Vector          as Vec     (toList)
 import qualified Data.Maybe           as M       (fromJust)
 import qualified Data.Text            as Text    (pack)
@@ -124,23 +122,28 @@ buildUrlStringWithoutParams URL{..} =
                       HTTPS -> "https://"
   in strProtocol ++ body
 
--- TODO: Доделать handleRequest
 handleRequest :: Network.Options -> String -> IO (Network.Response LBS.ByteString)
 handleRequest opts url =
-  let doAttempt = do
-        putStrLn msgError
+  let checkErrors :: SomeException -> IO (Network.Response LBS.ByteString)
+      checkErrors e = do
         threadDelay 15000000
-        doAttempt
-  in doAttempt
-  where msgError = Utils.joinByNewline
-                   ["Возникла ошибка при запросе."
-                   ,"Пожалуйста, проверьте ваше соединение."
-                   ,"Новая попытка запроса через каждые 15 секунд."
-                   ,"Если ошибка так не была устранена успешно,"
-                   ,"безопасно завершите работу нажатием сочетания клавиш Ctrl+C."]
-        msgSuccess = Utils.joinByNewline
-                     ["------------------------------------------------"
-                     ,"Работа возобновлена успешно."]
+        doAttempt True True
+      doAttempt showErr showSuccess = do
+        if showErr
+          then Utils.cleanAndPrint msgError
+          else return ()
+        result <- (Network.getWith opts url) `catch` checkErrors
+        if showSuccess
+          then do
+            Utils.cleanAndPrint msgSuccess
+            threadDelay 1000000
+          else return ()
+        return result
+  in do
+    result <- doAttempt False False
+    return result
+  where msgError   = "Возникла ошибка при запросе. Повтор каждые 15 секунд."
+        msgSuccess = "Работа возобновлена успешно."
 
 receive :: ([Id] -> AccessToken -> URL) -> AccessToken -> [Id]
                                       -> IO (Maybe LBS.ByteString)
@@ -149,7 +152,7 @@ receive funReceiveURL accessToken ids =
       setParams' = setParams url
       opts       = (setParams' . setHeaders) Network.defaults
   in do
-      req <- Network.getWith opts (buildUrlStringWithoutParams url)
+      req <- handleRequest opts (buildUrlStringWithoutParams url)
       return (req ^? Network.responseBody)
 
 -- Receivers
