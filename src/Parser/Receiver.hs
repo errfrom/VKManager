@@ -10,29 +10,47 @@
 --
 -- Модуль, задачей которого является
 -- получение информации, посредством VK API.
--- Интерфейс представлен функцией receive,
--- возвращающей JSON представление
--- полученных данных.
+-- Интерфейс представлен функциями,
+-- возвращающими JSON представления
+-- полученых данных.
 -----------------------------------------------------------------------------
 
 module Parser.Receiver
-       (usersURL
-       ,countriesURL
-       ,citiesURL
-       ,receive) where
+       ( receiveUsers
+       , receiveCities
+       , receiveCountries ) where
 
-import           Types.Receive
+import           Control.Lens                    ((.~), (^?))
+import           Control.Exception               (catch)
+import           Control.Concurrent              (threadDelay)
 import qualified Internal.Utils       as Utils   (mapToString, separateByCommas
-                                                 ,mapTuple, joinNoDel)
+                                                 ,mapTuple, joinNoDel
+                                                 ,joinByNewline)
 import qualified Data.Vector          as Vec     (toList)
 import qualified Data.Maybe           as M       (fromJust)
 import qualified Data.Text            as Text    (pack)
 import qualified Data.ByteString.Lazy as LBS     (ByteString(..))
-import qualified Data.Map.Strict      as Map     (toList, fromList)
-import           Control.Lens                    ((.~), (^?))
-import qualified Network.Wreq         as Network (Options(..), responseBody
+import qualified Data.Map.Strict      as Map     (Map(..), toList, fromList)
+import qualified Network.HTTP.Client  as Client  (HttpException(..)
+                                                 ,HttpExceptionContent(..))
+import qualified Network.Wreq         as Network (Options(..), Response(..)
+                                                 ,responseBody
                                                  ,getWith, headers, params
                                                  ,defaults)
+
+-- Types & Types Constructors
+-----------------------------------------------------------------------------
+data Protocol =
+    HTTP
+  | HTTPS
+
+data URL =
+  URL { protocol    :: Protocol
+      , body        :: String
+      , queryParams :: Map.Map String String }
+
+type AccessToken = String
+type Id          = Int
 
 -- URL builders
 -----------------------------------------------------------------------------
@@ -93,7 +111,7 @@ setParams URL{..}  =
                      |param <- (Map.toList queryParams)]
   in do Network.params .~ convertedMap
 
--- Receivers
+-- Builders
 -----------------------------------------------------------------------------
 
 -- | Создает строку вида {protocol}{body},
@@ -106,12 +124,37 @@ buildUrlStringWithoutParams URL{..} =
                       HTTPS -> "https://"
   in strProtocol ++ body
 
-receive :: ([Id] -> AccessToken -> URL) -> [Id] -> AccessToken
-                                                -> IO (Maybe LBS.ByteString)
-receive funReceiveURL ids accessToken =
+-- TODO: Доделать handleRequest
+handleRequest :: Network.Options -> String -> IO (Network.Response LBS.ByteString)
+handleRequest opts url =
+  let doAttempt = do
+        putStrLn msgError
+        threadDelay 15000000
+        doAttempt
+  in doAttempt
+  where msgError = Utils.joinByNewline
+                   ["Возникла ошибка при запросе."
+                   ,"Пожалуйста, проверьте ваше соединение."
+                   ,"Новая попытка запроса через каждые 15 секунд."
+                   ,"Если ошибка так не была устранена успешно,"
+                   ,"безопасно завершите работу нажатием сочетания клавиш Ctrl+C."]
+        msgSuccess = Utils.joinByNewline
+                     ["------------------------------------------------"
+                     ,"Работа возобновлена успешно."]
+
+receive :: ([Id] -> AccessToken -> URL) -> AccessToken -> [Id]
+                                      -> IO (Maybe LBS.ByteString)
+receive funReceiveURL accessToken ids =
   let url        = funReceiveURL ids accessToken
       setParams' = setParams url
       opts       = (setParams' . setHeaders) Network.defaults
   in do
       req <- Network.getWith opts (buildUrlStringWithoutParams url)
       return (req ^? Network.responseBody)
+
+-- Receivers
+-----------------------------------------------------------------------------
+
+receiveUsers     = receive usersURL
+receiveCities    = receive citiesURL
+receiveCountries = receive countriesURL
