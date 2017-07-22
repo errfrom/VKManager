@@ -1,5 +1,24 @@
-{-# LANGUAGE RecordWildCards       #-}
-{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
+
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Types.DataBase
+-- Copyright   :  (c) Ivanov Dmitry, 2017
+-- License     :  MIT license
+-- Maintainer  :  errfrom@yandex.ru
+--
+-- Описывает используемые типы
+-- данных, по своей семантике
+-- разделяющиеся на вспомогательные,
+-- основные и связующие.
+-- Основные типы данных описывают
+-- полученные с помощью API данные,
+-- связующие описывают схему ДБ,
+-- вспомогательные некоторым
+-- способом расширяют функционал
+-- не изменяя основной логики
+-- программы.
+-----------------------------------------------------------------------------
 
 module Types.DataBase
        ( -- * Types
@@ -12,14 +31,14 @@ module Types.DataBase
        , School(..)
        , Country(..)
        , City(..)
-       , SocialNetworks(..)
+       , SocialNetwork(..)
          -- * 'Connectors' data constructors
        , SchoolConnect(..)
        , UniversityConnect(..)
        , SNetworkConnect(..)
          -- * Internal data constructors
        , Genger(..)
-       , DateOfBirth(..)
+       , BDate(..)
          -- * Data constructor builders
        , connectUserSchools
        , connectUserUniver ) where
@@ -30,39 +49,39 @@ module Types.DataBase
 type PhoneNumber = String
 
 data DataChunk a = DataChunk
-  { user      :: User a
-  , schools   :: Maybe [School]
-  , univer    :: Maybe University
-  , sNetworks :: Maybe SocialNetworks }
+  { dcUser      :: User a
+  , dcSchools   :: Maybe [School]
+  , dcUniver    :: Maybe University
+  , dcSNetworks :: Maybe [SocialNetwork] }
   deriving (Show)
 
 data Genger =
-   Male
- | Female
- | Unknown
-   deriving (Show)
+    Male
+  | Female
+  | Unknown
+  deriving (Show)
 
 -- ^ Используется полиморфный тип a,
 -- т.к. изначально страны и города
 -- представлены их идентификаторами типа Int,
--- а потом заменяются на их названия строкового типа
-data User a =
-   User { uid     :: Int
-        , fName   :: String
-        , sName   :: String
-        , genger  :: Genger
-        , dob     :: Maybe DateOfBirth
-        , country :: Maybe a
-        , city    :: Maybe a
-        , phone   :: Maybe PhoneNumber }
- | Deleted
- | Banned
-   deriving (Show)
+-- а потом заменяются на их названия строкового типа.
+data User a = User
+  { userId      :: Int
+  , userFName   :: String
+  , userSName   :: String
+  , userGenger  :: Genger
+  , userBDate   :: Maybe BDate
+  , userCountry :: Maybe a
+  , userCity    :: Maybe a
+  , userPhone   :: Maybe PhoneNumber }
+  | Deleted
+  | Banned
+  deriving (Show)
 
-data DateOfBirth = DateOfBirth
-  { day   :: Int
-  , month :: Int
-  , year  :: Maybe Int }
+data BDate = BDate
+  { bdDay   :: Int
+  , bdMonth :: Int
+  , bdYear  :: Maybe Int }
   deriving (Show)
 
 data University = University
@@ -72,28 +91,28 @@ data University = University
 
 data School = School
   {schoolId    :: Int
-  ,schoolTitle :: String}
+  ,schoolTitle :: String }
   deriving (Show)
 
 data SchoolConnect = SchoolConnect
-  { uid      :: Int
-  , schoolId :: Int }
+  { scUid      :: Int
+  , scSchoolId :: Int }
   deriving (Show)
 
 data UniversityConnect = UniversityConnect
-  { uid          :: Int
-  , universityId :: Int}
+  { ucUid          :: Int
+  , ucUniversityId :: Int }
   deriving (Show)
 
-data SocialNetworks = SocialNetworks
-  { instagram :: Maybe String
-  , twitter   :: Maybe String
-  , facebook  :: Maybe String }
+data SocialNetwork =
+    Instagram String
+  | Twitter   String
+  | Facebook  String
   deriving (Show)
 
 data SNetworkConnect = SNetworkConnect
-  { uid           :: Int
-  , socialNetwork :: SocialNetworks}
+  { sncUid      :: Int
+  , sncSNetwork :: SocialNetwork }
   deriving (Show)
 
 data Country = Country
@@ -111,7 +130,8 @@ data City = City
 connectUserSchools :: User a -> [School] -> [SchoolConnect]
 connectUserSchools _ [] = []
 connectUserSchools user@User{..} (School{..}:schools) =
-  SchoolConnect{..} : connectUserSchools user schools
+  SchoolConnect userId schoolId : connectUserSchools user schools
 
 connectUserUniver :: User a -> University -> UniversityConnect
-connectUserUniver User{..} University{..} = UniversityConnect{..}
+connectUserUniver User{..} University{..} =
+  UniversityConnect userId universityId
