@@ -3,25 +3,27 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module DBInteract
-       (initDB
-       ,getStartValue) where
+       ( initDB
+       , getStartValue
+       , buildInsertQuery ) where
 
 import           Types.DataBase
-import qualified Internal.Utils         as Utils  (endsWith)
+import qualified Internal.Utils         as Utils  (endsWith, join)
 import qualified System.IO              as IO     (FilePath, readFile)
 import qualified System.FilePath.Posix  as Posix  (pathSeparator)
 import qualified System.Directory       as Dir    (doesFileExist
                                                   ,doesDirectoryExist
                                                   ,getCurrentDirectory)
-import qualified Data.Text              as Text   (pack)
+import qualified Data.Text              as Text   (Text(..), pack)
 import qualified Data.Int               as Int    (Int64)
 import qualified Data.List.Split        as Split  (endBy)
-import qualified Database.SQLite.Simple as SQLite (ResultError(..), SQLData(..)
-                                                  ,Connection, open, close
-                                                  ,execute_, query_)
-import           Database.SQLite.Simple           (ToRow(..))
+import qualified Database.SQLite.Simple as SQLite (ResultError(..), Connection
+                                                  ,open, close, execute_
+                                                  ,query_)
+import           Database.SQLite.Simple           (ToRow(..), SQLData(..))
 import           Database.SQLite.Simple.Types     (Query(..))
 import           Control.Exception                (catch)
+import           Text.Printf                      (printf)
 
 -- Basic functional
 -----------------------------------------------------------------------------
@@ -76,16 +78,56 @@ getStartValue conn = do
                       (\(SQLite.ConversionFailed _ _ _) -> do return [[0]])
   return (succ maxUID)
 
+-----------------------------------------------------------------------------
+buildInsertQuery :: String -> Int -> Query
+buildInsertQuery tableName numColumns =
+  let insertPattern = "INSERT INTO %s VALUES (%s)"
+      columnSymbols = Utils.join "," ["?" | _ <- [1..numColumns]] :: String
+  in (Query . Text.pack) $ printf insertPattern tableName columnSymbols
+
 -- ToRow instances
 -----------------------------------------------------------------------------
+
+instance ToRow (User String) where
+  toRow User{..} =
+    let strCountry = maybeText userCountry
+        strCity    = maybeText userCity
+        strPhone   = maybeText userPhone
+        strGenger  = case userGenger of
+                     Male    -> SQLText "Мужской"
+                     Female  -> SQLText "Женский"
+                     Unknown -> SQLNull
+        (d, m, y)  = case userBDate of
+                     Nothing  -> (SQLNull, SQLNull, SQLNull)
+                     Just val -> (toSQLInt (bdDay val)
+                                 ,toSQLInt (bdMonth val)
+                                 ,case (bdYear val) of
+                                  Nothing -> SQLNull
+                                  Just y  -> toSQLInt y)
+
+    in toRow (userId, userFName, userSName, strGenger, d, m, y
+             ,strCountry, strCity, strPhone)
+    where maybeText :: Maybe String -> SQLData
+          maybeText Nothing    = SQLNull
+          maybeText (Just val) = SQLText (Text.pack val)
+
+          toSQLInt :: Int -> SQLData
+          toSQLInt val = SQLInteger (fromIntegral val :: Int.Int64)
+
+instance ToRow SNetworkConnect where
+  toRow SNetworkConnect{..} = worker sncUid sncSNetwork
+    where worker userId (Instagram a) = toRow (userId, (SQLText "Instagram"), a)
+          worker userId (Twitter   a) = toRow (userId, (SQLText "Twitter"),   a)
+          worker userId (Facebook  a) = toRow (userId, (SQLText "Facebook"),  a)
+
 instance ToRow University where
   toRow University{..} = toRow (universityId, universityTitle)
 
 instance ToRow UniversityConnect where
-  toRow UniversityConnect{..} = toRow (uid, universityId)
+  toRow UniversityConnect{..} = toRow (ucUid, ucUniversityId)
 
 instance ToRow School where
   toRow School{..} = toRow (schoolId, schoolTitle)
 
 instance ToRow SchoolConnect where
-  toRow SchoolConnect{..} = toRow (uid, schoolId)
+  toRow SchoolConnect{..} = toRow (scUid, scSchoolId)
