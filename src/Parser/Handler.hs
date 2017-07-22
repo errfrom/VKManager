@@ -16,10 +16,11 @@
 -- DataBase типы.
 -----------------------------------------------------------------------------
 
-module Parser.Handler
-       ( handleChunks
-       , handleCities
-       , handleCountries ) where
+module Parser.Handler where
+      -- ( handleChunks
+  --     , handleCities
+  --     , handleCountries
+  --     , parseSchools ) where
 
 -- В данном модуле не используются конструкторы-коннекторы и строители
 import           Types.DataBase       hiding    (SchoolConnect(..)
@@ -98,9 +99,11 @@ instance FromJSON (User Int) where
                _            -> Just $ Phones.fromType parsedPhone
 
 instance FromJSON School where
-  parseJSON (Aeson.Object obj) =
-    School <$> (obj .: "id")
-           <*> (obj .: "name")
+  parseJSON (Aeson.Object obj) = do
+    schoolTitle <- (obj .: "name")
+    return School{..}
+    where schoolId = case (HM.lookup "id" obj) of
+                       Just (ATypes.String val) -> (read . Text.unpack) val
 
 instance FromJSON University where
   parseJSON (Aeson.Object obj) =

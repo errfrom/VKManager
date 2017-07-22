@@ -5,10 +5,12 @@
 module DBInteract
        ( initDB
        , getStartValue
-       , buildInsertQuery ) where
+       , buildInsertQuery
+       , failoverInsert ) where
 
 import           Types.DataBase
-import qualified Internal.Utils         as Utils  (endsWith, join)
+import qualified Internal.Utils         as Utils  (endsWith, join
+                                                  ,cleanAndPrint)
 import qualified System.IO              as IO     (FilePath, readFile)
 import qualified System.FilePath.Posix  as Posix  (pathSeparator)
 import qualified System.Directory       as Dir    (doesFileExist
@@ -19,9 +21,10 @@ import qualified Data.Int               as Int    (Int64)
 import qualified Data.List.Split        as Split  (endBy)
 import qualified Database.SQLite.Simple as SQLite (ResultError(..), Connection
                                                   ,open, close, execute_
-                                                  ,query_)
+                                                  ,execute, query_)
 import           Database.SQLite.Simple           (ToRow(..), SQLData(..))
 import           Database.SQLite.Simple.Types     (Query(..))
+import           Database.SQLite3                 (SQLError(..), Error(..))
 import           Control.Exception                (catch)
 import           Text.Printf                      (printf)
 
@@ -66,8 +69,10 @@ initDB pathToDB = do
   case isExist of
     True  -> return ()
     False -> do
+      putStrLn "Инициализация базы данных..."
       sqlInitCommands <- getInitSQL
       mapM_ (SQLite.execute_ conn) sqlInitCommands
+      putStrLn "Инициализировано."
   return conn
 
 -- | Получает максимальное значение UID уже записанных в базу пользователей.
@@ -84,6 +89,16 @@ buildInsertQuery tableName numColumns =
   let insertPattern = "INSERT INTO %s VALUES (%s)"
       columnSymbols = Utils.join "," ["?" | _ <- [1..numColumns]] :: String
   in (Query . Text.pack) $ printf insertPattern tableName columnSymbols
+
+failoverInsert :: (ToRow t) => SQLite.Connection -> Query -> t -> IO ()
+failoverInsert conn query obj =
+  (SQLite.execute conn query obj) `catch` checkErrors
+  where doNothing = return ()
+        checkErrors :: SQLError -> IO ()
+        checkErrors (SQLError ErrorConstraint _ _) = doNothing
+        checkErrors _ = do
+          Utils.cleanAndPrint "Ошибка записи в базу. Завершение работы..."
+          SQLite.close conn
 
 -- ToRow instances
 -----------------------------------------------------------------------------
