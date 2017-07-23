@@ -16,11 +16,11 @@
 -- DataBase типы.
 -----------------------------------------------------------------------------
 
-module Parser.Handler
-       ( handleChunks
-       , handleViaFun
-       , parseCity
-       , parseCountry ) where
+module Parser.Handler where
+      -- ( handleChunks
+  --     , handleCities
+  --     , handleCountries
+  --     , parseSchools ) where
 
 -- В данном модуле не используются конструкторы-коннекторы и строители
 import           Types.DataBase       hiding    (SchoolConnect(..)
@@ -40,7 +40,8 @@ import qualified Data.Aeson           as Aeson  (Value(Object))
 import qualified Data.Aeson.Lens      as ALens  (key)
 import qualified Data.HashMap.Strict  as HM     (lookup)
 import qualified Data.ByteString.Lazy as LBS    (ByteString(..))
-import qualified Data.Maybe           as M      (fromJust, catMaybes)
+import qualified Data.Maybe           as M      (fromJust, catMaybes
+                                                ,maybeToList)
 import qualified Data.Vector          as Vec    (toList)
 import qualified Data.Text            as Text   (Text(..), unpack)
 
@@ -49,14 +50,14 @@ import qualified Data.Text            as Text   (Text(..), unpack)
 
 instance FromJSON (User Int) where
   parseJSON (Aeson.Object obj) = do
-    let genger = getGenger $ getValueOf "sex"
-        dob    = getDOB    $ getValueOf "bdate"
-        phone  = getPhone  $ getValueOf "mobile_phone"
-    uid     <- (obj .:  "uid")
-    fName   <- (obj .:  "first_name")
-    sName   <- (obj .:  "last_name")
-    country <- (obj .:? "country")
-    city    <- (obj .:? "city")
+    let userGenger = getGenger (getValueOf "sex")
+        userBDate  = getDOB    (getValueOf "bdate")
+        userPhone  = getPhone  (getValueOf "mobile_phone")
+    userId      <- (obj .:  "uid")
+    userFName   <- (obj .:  "first_name")
+    userSName   <- (obj .:  "last_name")
+    userCountry <- (obj .:? "country")
+    userCity    <- (obj .:? "city")
     return User{..}
     where getValueOf :: Text.Text -> Maybe ATypes.Value
           getValueOf key = HM.lookup key obj
@@ -67,7 +68,7 @@ instance FromJSON (User Int) where
                              Just (ATypes.Number 2.0) -> Male
                              _                        -> Unknown
 
-          getDOB :: Maybe ATypes.Value -> Maybe DateOfBirth
+          getDOB :: Maybe ATypes.Value -> Maybe BDate
           getDOB Nothing = Nothing
           getDOB (Just (ATypes.String bdate)) = (go_getDOB . Text.unpack) bdate
           -- getDOB распаковывает полученное значение даты рождения
@@ -85,8 +86,8 @@ instance FromJSON (User Int) where
                   getGroups match =
                     let groups = (tail . head) match
                     in map (read :: String -> Int) groups
-                  applyGroups2 (d:m:_)   = DateOfBirth d m Nothing
-                  applyGroups3 (d:m:y:_) = DateOfBirth d m (Just y)
+                  applyGroups2 (d:m:_)   = BDate d m Nothing
+                  applyGroups3 (d:m:y:_) = BDate d m (Just y)
 
           getPhone :: Maybe ATypes.Value -> Maybe PhoneNumber
           getPhone Nothing = Nothing
@@ -98,9 +99,11 @@ instance FromJSON (User Int) where
                _            -> Just $ Phones.fromType parsedPhone
 
 instance FromJSON School where
-  parseJSON (Aeson.Object obj) =
-    School <$> (obj .: "id")
-           <*> (obj .: "name")
+  parseJSON (Aeson.Object obj) = do
+    schoolTitle <- (obj .: "name")
+    return School{..}
+    where schoolId = case (HM.lookup "id" obj) of
+                       Just (ATypes.String val) -> (read . Text.unpack) val
 
 instance FromJSON University where
   parseJSON (Aeson.Object obj) =
@@ -117,11 +120,20 @@ instance FromJSON Country where
     Country <$> (obj .: "cid")
             <*> (obj .: "name")
 
-instance FromJSON SocialNetworks where
-  parseJSON (Aeson.Object obj) =
-    SocialNetworks <$> (obj .:? "instagram")
-                   <*> (obj .:? "twitter")
-                   <*> (obj .:? "facebook")
+instance {-# OVERLAPS #-} FromJSON [SocialNetwork] where
+  parseJSON (Aeson.Object obj) = do
+    let instagram = setSN "instagram" obj
+        twitter   = setSN "twitter" obj
+        facebook  = setSN "facebook" obj
+    return $ foldl (++) [] $ map M.maybeToList [instagram, twitter, facebook]
+    where setSN snName obj =
+            case (HM.lookup snName obj) of
+            Nothing                  -> Nothing
+            Just (ATypes.String val) -> let strVal = Text.unpack val
+                                        in case snName of
+                                           "instagram" -> Just (Instagram strVal)
+                                           "twitter"   -> Just (Twitter   strVal)
+                                           "facebook"  -> Just (Facebook  strVal)
 
 -- Parse functions
 -----------------------------------------------------------------------------
@@ -150,7 +162,7 @@ parseCity = defaultParse
 parseSchool :: ATypes.Value -> Maybe School
 parseSchool = defaultParse
 
-parseSNetworks :: ATypes.Value -> Maybe SocialNetworks
+parseSNetworks :: ATypes.Value -> Maybe [SocialNetwork]
 parseSNetworks = defaultParse
 
 parseSchools :: ATypes.Value -> Maybe [Maybe School]
@@ -163,29 +175,8 @@ parseSchools (Aeson.Object obj) =
 parseUniversity :: ATypes.Value -> Maybe University
 parseUniversity = defaultParse
 
--- Handle functions
+-- Builders
 -----------------------------------------------------------------------------
-
--- | По переданному JSON представлению пользователей
--- возвращает список DataChunk, где представлен
--- пользователь, его школ(а/ы), университет и другие
--- социальные сети, в которых он зарегистрирован
-handleChunks :: LBS.ByteString -> Maybe [DataChunk Int]
-handleChunks json =
-  let respJSON = getResponseJSON json
-  in case respJSON of
-     Nothing   -> Nothing
-     Just vals -> Just $ worker vals
-  where worker :: [ATypes.Value] -> [DataChunk Int]
-        worker []       = []
-        worker (val:xs) =
-          let mUser     = parseUser val
-              schools   = M.catMaybes <$> parseSchools val
-              univer    = parseUniversity val
-              sNetworks = parseSNetworks val
-          in case mUser of
-            Just user -> DataChunk{..} : (worker xs)
-            Nothing   -> worker xs
 
 -- | Обработка, основанная на логике parseFun
 -- Полиморфная сущность этой функции, позволяет
@@ -210,3 +201,30 @@ getResponseJSON json =
   in case responseJson of
      Just arr -> fromArray arr
      _        -> Nothing
+
+-- Handlers
+-----------------------------------------------------------------------------
+
+-- | По переданному JSON представлению пользователей
+-- возвращает список DataChunk, где представлен
+-- пользователь, его школ(а/ы), университет и другие
+-- социальные сети, в которых он зарегистрирован
+handleChunks :: LBS.ByteString -> Maybe [DataChunk Int]
+handleChunks json =
+  let respJSON = getResponseJSON json
+  in case respJSON of
+     Nothing   -> Nothing
+     Just vals -> Just $ worker vals
+  where worker :: [ATypes.Value] -> [DataChunk Int]
+        worker []       = []
+        worker (val:xs) =
+          let mUser       = parseUser val
+              dcSchools   = M.catMaybes <$> parseSchools val
+              dcUniver    = parseUniversity val
+              dcSNetworks = parseSNetworks val
+          in case mUser of
+            Just dcUser -> DataChunk{..} : (worker xs)
+            Nothing     -> worker xs
+
+handleCities    = handleViaFun parseCity
+handleCountries = handleViaFun parseCountry
