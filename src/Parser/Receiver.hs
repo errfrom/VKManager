@@ -127,23 +127,9 @@ handleRequest opts url =
   let checkErrors :: SomeException -> IO (Network.Response LBS.ByteString)
       checkErrors e = do
         threadDelay 15000000
-        doAttempt True True
-      doAttempt showErr showSuccess = do
-        if showErr
-          then Utils.cleanAndPrint msgError
-          else return ()
-        result <- (Network.getWith opts url) `catch` checkErrors
-        if showSuccess
-          then do
-            Utils.cleanAndPrint msgSuccess
-            threadDelay 1000000
-          else return ()
-        return result
-  in do
-    result <- doAttempt False False
-    return result
-  where msgError   = "Возникла ошибка при запросе. Повтор каждые 15 секунд."
-        msgSuccess = "Работа возобновлена успешно."
+        doAttempt
+      doAttempt = (Network.getWith opts url) `catch` checkErrors
+  in doAttempt 
 
 receive :: ([Id] -> AccessToken -> URL) -> AccessToken -> [Id]
                                       -> IO (Maybe LBS.ByteString)

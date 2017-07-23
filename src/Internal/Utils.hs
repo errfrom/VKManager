@@ -56,7 +56,9 @@ removeManyFromString (ch:cs) string =
 endsWith :: String -> String -> Bool
 endsWith sub str = Text.isSuffixOf (Text.pack sub) (Text.pack str)
 
-cleanAndPrint :: String -> IO ()
-cleanAndPrint text = do
-  Sys.hPutStr Sys.stdout ("\r" ++ text ++ ([1..100] >> " "))
+cleanAndPrint :: String -> Bool -> IO ()
+cleanAndPrint text withAdditionalSpace = do
+  Sys.hPutStr Sys.stdout ("\r" ++ text ++ (case withAdditionalSpace of
+                                           True  -> ([1..100] >> " ")
+                                           False -> ""))
   Sys.hFlush Sys.stdout
