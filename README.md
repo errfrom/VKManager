@@ -7,7 +7,8 @@
 в удобном для анализа виде.  
 
 ## Установка и запуск
-Скачать версию для OSX можно по ссылке: [wfurem-osx](https://github.com/errfrom/WFurem/raw/haskell/WFurem-0.1.2.0.zip)
+Скачать версию для OSX можно по ссылке: [wfurem-osx](https://github.com/errfrom/WFurem/raw/haskell/WFurem-0.1.2.0.zip)  
+Скачать версию для 'Linux x86_64' можно по ссылке: [wfurem-linux](https://github.com/errfrom/WFurem/raw/haskell/WFurem-0.1.2.0-linux.zip)  
 
 ## Лицензия
 
